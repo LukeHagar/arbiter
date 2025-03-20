@@ -1,0 +1,67 @@
+{
+  "name": "arbiter",
+  "version": "1.0.0",
+  "description": "API proxy with OpenAPI generation and HAR export capabilities",
+  "main": "dist/cli.js",
+  "bin": {
+    "arbiter": "./dist/cli.js"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/cli.js",
+    "dev": "ts-node-dev --respawn --transpile-only src/cli.ts",
+    "cli": "ts-node-dev --respawn --transpile-only src/cli.ts",
+    "test": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:unit": "vitest src/**/__tests__/*.test.ts",
+    "test:integration": "vitest integration/__tests__/*.test.ts",
+    "test:ci": "vitest run",
+    "lint": "eslint . --ext .ts"
+  },
+  "keywords": [
+    "api",
+    "proxy",
+    "openapi",
+    "har",
+    "documentation"
+  ],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/LukeHagar/arbiter/issues"
+  },
+  "homepage": "https://github.com/LukeHagar/arbiter#readme",
+  "dependencies": {
+    "@scalar/api-reference": "^1.28.6",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.1",
+    "@types/serve-static": "^1.15.7",
+    "@types/swagger-ui-express": "^4.1.8",
+    "chalk": "^4.1.2",
+    "commander": "^12.0.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "hono": "^4.1.2",
+    "http-proxy": "^1.18.1",
+    "http-proxy-middleware": "^3.0.3",
+    "serve-static": "^1.16.2",
+    "swagger-ui-express": "^5.0.1",
+    "yaml": "^2.7.0"
+  },
+  "devDependencies": {
+    "@hono/node-server": "^1.13.8",
+    "@types/chalk": "^2.2.0",
+    "@types/commander": "^2.12.2",
+    "@types/http-proxy": "^1.17.14",
+    "@types/node": "^20.11.24",
+    "@types/node-fetch": "^2.6.12",
+    "@vitest/coverage-v8": "^3.0.9",
+    "node-fetch": "^3.3.2",
+    "openapi-types": "^12.1.3",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.3.3",
+    "vitest": "^3.0.9"
+  }
+}
