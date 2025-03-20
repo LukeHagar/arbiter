@@ -66,12 +66,10 @@ export async function startServers(
 
   // Configure proxy server middleware
   proxyApp.use('*', async (c, next) => {
-    await harRecorder(openApiStore)(c);
-    await next();
+    await harRecorder(openApiStore)(c, next);
   });
   proxyApp.use('*', async (c, next) => {
-    await apiDocGenerator(openApiStore)(c);
-    await next();
+    await apiDocGenerator(openApiStore)(c, next);
   });
 
   // Documentation endpoints
@@ -391,6 +389,24 @@ export async function startServers(
   console.log(chalk.cyan(`  OpenAPI JSON: http://localhost:${availableDocsPort}/openapi.json`));
   console.log(chalk.cyan(`  OpenAPI YAML: http://localhost:${availableDocsPort}/openapi.yaml`));
   console.log('\n' + chalk.yellow('Press Ctrl+C to stop'));
+
+  // Handle graceful shutdown
+  const shutdown = async (signal: string): Promise<void> => {
+    console.info(`Received ${signal}, shutting down...`);
+    await Promise.all([
+      proxyServer.close(),
+      docsServer.close(),
+    ]);
+    process.exit(0);
+  };
+
+  process.on('SIGTERM', () => {
+    void shutdown('SIGTERM');
+  });
+
+  process.on('SIGINT', () => {
+    void shutdown('SIGINT');
+  });
 
   return { proxyServer, docsServer };
 }

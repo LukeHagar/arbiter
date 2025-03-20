@@ -6,7 +6,8 @@ import { startServers } from './server.js';
 
 const program = new Command();
 
-console.log('Starting Arbiter...');
+// Use console.info for startup messages
+console.info('Starting Arbiter...');
 
 program
   .name('arbiter')
@@ -24,11 +25,11 @@ const options = program.opts();
 
 // Start the servers
 startServers({
-  target: options.target,
-  proxyPort: parseInt(options.port),
-  docsPort: parseInt(options.docsPort),
-  verbose: options.verbose,
-}).catch((error) => {
-  console.error(chalk.red('Failed to start servers:'), error);
+  target: options.target as string,
+  proxyPort: parseInt(options.port as string, 10),
+  docsPort: parseInt(options.docsPort as string, 10),
+  verbose: options.verbose as boolean,
+}).catch((error: Error) => {
+  console.error(chalk.red('Failed to start servers:'), error.message);
   process.exit(1);
 });
