@@ -5,9 +5,9 @@ import type { OpenAPI, OpenAPIV3_1 } from 'openapi-types';
 
 export interface SecurityInfo {
   type: 'apiKey' | 'oauth2' | 'http' | 'openIdConnect';
-  scheme?: 'bearer' | 'basic' | 'digest';
   name?: string;
   in?: 'header' | 'query' | 'cookie';
+  scheme?: string;
   flows?: {
     implicit?: {
       authorizationUrl: string;
@@ -91,7 +91,7 @@ type PathsObject = {
   [path: string]: PathItemObject;
 };
 
-class OpenAPIStore {
+export class OpenAPIStore {
   private endpoints: Map<string, EndpointInfo>;
   private harEntries: HAREntry[];
   private targetUrl: string;

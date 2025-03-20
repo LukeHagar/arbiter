@@ -9,6 +9,9 @@ import { openApiStore } from './store/openApiStore.js';
 import { IncomingMessage, ServerResponse, createServer, Server } from 'node:http';
 import { Agent } from 'node:https';
 import chalk from 'chalk';
+import { harRecorder } from './middleware/harRecorder.js';
+import { apiDocGenerator } from './middleware/apiDocGenerator.js';
+import type { ServerConfig } from './types.js';
 
 export interface ServerOptions {
   target: string;
@@ -60,6 +63,16 @@ export async function startServers(
   proxyApp.use('*', prettyJSON());
   docsApp.use('*', cors());
   docsApp.use('*', prettyJSON());
+
+  // Configure proxy server middleware
+  proxyApp.use('*', async (c, next) => {
+    await harRecorder(openApiStore)(c);
+    await next();
+  });
+  proxyApp.use('*', async (c, next) => {
+    await apiDocGenerator(openApiStore)(c);
+    await next();
+  });
 
   // Documentation endpoints
   docsApp.get('/docs', async (c: Context) => {
@@ -380,4 +393,11 @@ export async function startServers(
   console.log('\n' + chalk.yellow('Press Ctrl+C to stop'));
 
   return { proxyServer, docsServer };
+}
+
+function createServerConfig(app: Hono, port: number): ServerConfig {
+  return {
+    fetch: app.fetch,
+    port,
+  };
 }

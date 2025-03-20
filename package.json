@@ -19,8 +19,8 @@
     "test:ci": "vitest run",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
-    "format": "prettier --write \"src/**/*.ts\"",
-    "format:check": "prettier --check \"src/**/*.ts\""
+    "format": "prettier --write \"src/**/*.ts\" \"integration/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"integration/**/*.ts\""
   },
   "keywords": [
     "api",

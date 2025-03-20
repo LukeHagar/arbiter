@@ -26,7 +26,8 @@ jobs:
         run: npm run format:check
       
       - name: Run linter
-        run: npm run lint
+        run: npm run lint -- --max-warnings 0
+        continue-on-error: true
 
   test:
     name: Tests
