@@ -7,83 +7,96 @@ A powerful API proxy with automatic OpenAPI documentation generation and HAR exp
 - Proxy API requests to any target server
 - Automatic OpenAPI documentation generation
 - HAR file export for request/response analysis
-- Beautiful Swagger UI for API exploration
+- Beautiful API documentation powered by [Scalar](https://github.com/scalar/scalar)
+  - Interactive API playground
+  - Dark/Light theme support
+  - Request/Response examples
+  - Authentication handling
+  - OpenAPI 3.1 support
 - CLI interface for easy configuration
-- Support for API key injection
+- Support for security scheme detection
 - CORS enabled by default
 - Pretty JSON responses
 
 ## Installation
 
-```bash
-npm install -g arbiter
-```
-
-Or clone the repository and install dependencies:
+Clone the repository and install dependencies:
 
 ```bash
-git clone https://github.com/yourusername/arbiter.git
+git clone https://github.com/LukeHagar/arbiter.git
 cd arbiter
 npm install
 ```
 
 ## Usage
 
-### CLI
+### Development Setup
 
-The easiest way to use Arbiter is through the CLI:
+1. Build the project:
+```bash
+npm run build
+```
+
+2. Start the development server:
+```bash
+npm run dev -- --target http://api.example.com
+```
+
+Once started, you can access:
+- The API documentation at `http://localhost:9000/docs`
+- The proxy server at `http://localhost:8080`
+
+The documentation interface is powered by Scalar, providing:
+- A modern, responsive UI for API exploration
+- Interactive request builder and testing
+- Authentication management
+- Code snippets in multiple languages
+- Dark/Light theme switching
+- OpenAPI 3.1 specification support
+
+### CLI Options
 
 ```bash
-# Basic usage
-arbiter --target http://api.example.com
+# Basic usage (default ports: proxy=8080, docs=9000)
+npm run dev -- --target http://api.example.com
 
-# Specify custom port
-arbiter --port 8080 --target http://api.example.com
+# Specify custom ports
+npm run dev -- --port 3000 --docs-port 4000 --target http://api.example.com
 
-# Add API key to requests
-arbiter --key your-api-key --target http://api.example.com
+# Run with verbose logging
+npm run dev -- --verbose --target http://api.example.com
 
 # Run only the documentation server
-arbiter --docs-only --port 3000
+npm run dev -- --docs-only --target http://api.example.com
 
 # Run only the proxy server
-arbiter --proxy-only --port 3000
-
-# Enable verbose logging
-arbiter --verbose --target http://api.example.com
+npm run dev -- --proxy-only --target http://api.example.com
 ```
 
-### Development
+### Required Options
+- `-t, --target <url>`: Target API URL to proxy to (required)
 
-For development, you can use the following commands:
-
-```bash
-# Start the development server
-npm run dev
-
-# Build the project
-npm run build
-
-# Start the production server
-npm start
-
-# Run the CLI in development mode
-npm run cli
-```
+### Optional Options
+- `-p, --port <number>`: Port for the proxy server (default: 8080)
+- `-d, --docs-port <number>`: Port for the documentation server (default: 9000)
+- `--docs-only`: Run only the documentation server
+- `--proxy-only`: Run only the proxy server
+- `-v, --verbose`: Enable verbose logging
 
 ## Architecture
 
 Arbiter runs two separate servers:
 
-1. **Proxy Server** (default port 3000)
+1. **Proxy Server** (default port 8080)
    - Handles all API requests
    - Forwards requests to the target API
    - Records request/response data
-   - Supports API key injection
+   - Detects and records security schemes
 
-2. **Documentation Server** (default port 3001)
-   - Serves the Swagger UI interface
-   - Provides OpenAPI specification
+2. **Documentation Server** (default port 9000)
+   - Serves the Scalar API documentation interface
+   - Provides interactive API playground
+   - Supports OpenAPI 3.1 specification
    - Handles HAR file exports
    - Separated from proxy for better performance
 
@@ -92,30 +105,17 @@ Arbiter runs two separate servers:
 ### Proxy Server
 - All requests are proxied to the target API
 - No path prefix required
-- Example: `http://localhost:3000/api/v1/users`
+- Example: `http://localhost:8080/api/v1/users`
 
 ### Documentation Server
-- `/docs` - Swagger UI interface
-- `/openapi.json` - OpenAPI specification
+- `/docs` - Scalar API documentation interface
+  - Interactive request builder
+  - Authentication management
+  - Code snippets in multiple languages
+  - Dark/Light theme support
+- `/openapi.json` - OpenAPI specification in JSON format
+- `/openapi.yaml` - OpenAPI specification in YAML format
 - `/har` - HAR file export
-
-## Configuration
-
-### Environment Variables
-
-- `PORT` - Proxy server port (default: 3000)
-- `TARGET` - Target API URL
-- `API_KEY` - API key to add to requests
-- `VERBOSE` - Enable verbose logging
-
-### Command Line Options
-
-- `-p, --port <number>` - Proxy server port
-- `-t, --target <url>` - Target API URL
-- `-k, --key <string>` - API key
-- `-d, --docs-only` - Run only documentation server
-- `-x, --proxy-only` - Run only proxy server
-- `-v, --verbose` - Enable verbose logging
 
 ## Contributing
 
@@ -124,10 +124,6 @@ Arbiter runs two separate servers:
 3. Commit your changes (`git commit -m 'Add some amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
-
-## License
-
-This project is licensed under the ISC License - see the LICENSE file for details.
 
 ## Testing
 
@@ -159,3 +155,7 @@ The project uses GitHub Actions for continuous integration. The CI pipeline runs
 - Testing against multiple Node.js versions (18.x and 20.x)
 
 You can view the CI status in the GitHub Actions tab of the repository.
+
+## License
+
+This project is licensed under the ISC License - see the LICENSE file for details.
