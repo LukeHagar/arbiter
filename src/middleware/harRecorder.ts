@@ -71,7 +71,7 @@ export async function harRecorder(c: Context, next: Next) {
     security.push({
       type: 'apiKey',
       name: 'x-api-key',
-      in: 'header'
+      in: 'header',
     });
   }
 
@@ -105,16 +105,16 @@ export async function harRecorder(c: Context, next: Next) {
       body: requestBody,
       contentType,
       headers: requestHeaders,
-      security
+      security,
     },
     {
       status: c.res.status,
       body: responseBody,
       contentType: responseContentType,
-      headers: Object.fromEntries(c.res.headers.entries())
+      headers: Object.fromEntries(c.res.headers.entries()),
     }
   );
 
   // Set HAR data in context
   c.set('har', openApiStore.generateHAR());
-} 
+}

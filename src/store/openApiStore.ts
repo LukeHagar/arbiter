@@ -1,10 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { stringify } from 'yaml';
-import type {
-  OpenAPI,
-  OpenAPIV3_1
-} from 'openapi-types';
+import type { OpenAPI, OpenAPIV3_1 } from 'openapi-types';
 
 export interface SecurityInfo {
   type: 'apiKey' | 'oauth2' | 'http' | 'openIdConnect';
@@ -128,11 +125,11 @@ class OpenAPIStore {
     if (schemas.length === 1) return schemas[0];
 
     // If all schemas are objects, merge their properties
-    if (schemas.every(s => s.type === 'object')) {
+    if (schemas.every((s) => s.type === 'object')) {
       const mergedProperties: Record<string, OpenAPIV3_1.SchemaObject> = {};
       const mergedRequired: string[] = [];
 
-      schemas.forEach(schema => {
+      schemas.forEach((schema) => {
         if (schema.properties) {
           Object.entries(schema.properties).forEach(([key, value]) => {
             if (!mergedProperties[key]) {
@@ -147,13 +144,14 @@ class OpenAPIStore {
 
       return {
         type: 'object',
-        properties: mergedProperties
+        properties: mergedProperties,
       };
     }
 
     // If schemas are different types, use oneOf with unique schemas
-    const uniqueSchemas = schemas.filter((schema, index, self) =>
-      index === self.findIndex(s => JSON.stringify(s) === JSON.stringify(schema))
+    const uniqueSchemas = schemas.filter(
+      (schema, index, self) =>
+        index === self.findIndex((s) => JSON.stringify(s) === JSON.stringify(schema))
     );
 
     if (uniqueSchemas.length === 1) {
@@ -162,7 +160,7 @@ class OpenAPIStore {
 
     return {
       type: 'object',
-      oneOf: uniqueSchemas
+      oneOf: uniqueSchemas,
     };
   }
 
@@ -170,30 +168,30 @@ class OpenAPIStore {
     if (obj === null) return { type: 'null' };
     if (Array.isArray(obj)) {
       if (obj.length === 0) return { type: 'array', items: { type: 'object' } };
-      
+
       // Generate schemas for all items
-      const itemSchemas = obj.map(item => this.generateJsonSchema(item));
-      
+      const itemSchemas = obj.map((item) => this.generateJsonSchema(item));
+
       // If all items have the same schema, use that
-      if (itemSchemas.every(s => JSON.stringify(s) === JSON.stringify(itemSchemas[0]))) {
+      if (itemSchemas.every((s) => JSON.stringify(s) === JSON.stringify(itemSchemas[0]))) {
         return {
           type: 'array',
           items: itemSchemas[0],
-          example: obj
+          example: obj,
         };
       }
-      
+
       // If items have different schemas, use oneOf
       return {
         type: 'array',
         items: {
           type: 'object',
-          oneOf: itemSchemas
+          oneOf: itemSchemas,
         },
-        example: obj
+        example: obj,
       };
     }
-    
+
     if (typeof obj === 'object') {
       const properties: Record<string, OpenAPIV3_1.SchemaObject> = {};
       for (const [key, value] of Object.entries(obj)) {
@@ -202,24 +200,24 @@ class OpenAPIStore {
       return {
         type: 'object',
         properties,
-        example: obj
+        example: obj,
       };
     }
-    
+
     // Map JavaScript types to OpenAPI types
     const typeMap: Record<string, OpenAPIV3_1.NonArraySchemaObjectType> = {
-      'string': 'string',
-      'number': 'number',
-      'boolean': 'boolean',
-      'bigint': 'integer',
-      'symbol': 'string',
-      'undefined': 'string',
-      'function': 'string'
+      string: 'string',
+      number: 'number',
+      boolean: 'boolean',
+      bigint: 'integer',
+      symbol: 'string',
+      undefined: 'string',
+      function: 'string',
     };
-    
-    return { 
+
+    return {
       type: typeMap[typeof obj] || 'string',
-      example: obj
+      example: obj,
     };
   }
 
@@ -231,7 +229,7 @@ class OpenAPIStore {
   ): void {
     const now = new Date();
     const url = new URL(path, this.targetUrl);
-    
+
     // Add query parameters from request.query
     Object.entries(request.query || {}).forEach(([key, value]) => {
       url.searchParams.append(key, value);
@@ -244,36 +242,35 @@ class OpenAPIStore {
         method: method.toUpperCase(),
         url: url.toString(),
         httpVersion: 'HTTP/1.1',
-        headers: Object.entries(request.headers || {})
-          .map(([name, value]) => ({ 
-            name: name.toLowerCase(), // Normalize header names
-            value: String(value) // Ensure value is a string
-          })),
-        queryString: Object.entries(request.query || {})
-          .map(([name, value]) => ({ 
-            name, 
-            value: String(value) // Ensure value is a string
-          })),
-        postData: request.body ? {
-          mimeType: request.contentType,
-          text: typeof request.body === 'string' ? request.body : JSON.stringify(request.body)
-        } : undefined
+        headers: Object.entries(request.headers || {}).map(([name, value]) => ({
+          name: name.toLowerCase(), // Normalize header names
+          value: String(value), // Ensure value is a string
+        })),
+        queryString: Object.entries(request.query || {}).map(([name, value]) => ({
+          name,
+          value: String(value), // Ensure value is a string
+        })),
+        postData: request.body
+          ? {
+              mimeType: request.contentType,
+              text: typeof request.body === 'string' ? request.body : JSON.stringify(request.body),
+            }
+          : undefined,
       },
       response: {
         status: response.status,
         statusText: response.status === 200 ? 'OK' : 'Error',
         httpVersion: 'HTTP/1.1',
-        headers: Object.entries(response.headers || {})
-          .map(([name, value]) => ({ 
-            name: name.toLowerCase(), // Normalize header names
-            value: String(value) // Ensure value is a string
-          })),
+        headers: Object.entries(response.headers || {}).map(([name, value]) => ({
+          name: name.toLowerCase(), // Normalize header names
+          value: String(value), // Ensure value is a string
+        })),
         content: {
           size: response.body ? JSON.stringify(response.body).length : 0,
           mimeType: response.contentType || 'application/json',
-          text: typeof response.body === 'string' ? response.body : JSON.stringify(response.body)
-        }
-      }
+          text: typeof response.body === 'string' ? response.body : JSON.stringify(response.body),
+        },
+      },
     };
 
     this.harEntries.push(entry);
@@ -300,7 +297,7 @@ class OpenAPIStore {
         scheme = {
           type: 'apiKey',
           name: security.name || 'x-api-key',
-          in: security.in || 'header'
+          in: security.in || 'header',
         };
         break;
 
@@ -311,25 +308,26 @@ class OpenAPIStore {
             implicit: {
               authorizationUrl: 'https://example.com/oauth/authorize',
               scopes: {
-                'read': 'Read access',
-                'write': 'Write access'
-              }
-            }
-          }
+                read: 'Read access',
+                write: 'Write access',
+              },
+            },
+          },
         };
         break;
 
       case 'http':
         scheme = {
           type: 'http',
-          scheme: security.scheme || 'bearer'
+          scheme: security.scheme || 'bearer',
         };
         break;
 
       case 'openIdConnect':
         scheme = {
           type: 'openIdConnect',
-          openIdConnectUrl: security.openIdConnectUrl || 'https://example.com/.well-known/openid-configuration'
+          openIdConnectUrl:
+            security.openIdConnectUrl || 'https://example.com/.well-known/openid-configuration',
         };
         break;
 
@@ -355,15 +353,18 @@ class OpenAPIStore {
       method,
       responses: {},
       parameters: [],
-      requestBody: method.toLowerCase() === 'get' ? undefined : {
-        required: false,
-        content: {}
-      }
+      requestBody:
+        method.toLowerCase() === 'get'
+          ? undefined
+          : {
+              required: false,
+              content: {},
+            },
     };
 
     // Add security schemes if present
     if (request.security) {
-      endpoint.security = request.security.map(security => {
+      endpoint.security = request.security.map((security) => {
         const schemeName = this.addSecurityScheme(security);
         return { [schemeName]: [] }; // Empty array for scopes
       });
@@ -371,29 +372,29 @@ class OpenAPIStore {
 
     // Add path parameters
     const pathParams = openApiPath.match(/\{(\w+)\}/g) || [];
-    pathParams.forEach(param => {
+    pathParams.forEach((param) => {
       const paramName = param.slice(1, -1);
-      if (!endpoint.parameters.some(p => p.name === paramName)) {
+      if (!endpoint.parameters.some((p) => p.name === paramName)) {
         endpoint.parameters.push({
           name: paramName,
           in: 'path',
           required: true,
           schema: {
-            type: 'string'
-          } satisfies OpenAPIV3_1.SchemaObject
+            type: 'string',
+          } satisfies OpenAPIV3_1.SchemaObject,
         });
       }
     });
 
     // Add query parameters
     Object.entries(request.query).forEach(([key, value]) => {
-      if (!endpoint.parameters.some(p => p.name === key)) {
+      if (!endpoint.parameters.some((p) => p.name === key)) {
         endpoint.parameters.push({
           name: key,
           in: 'query',
           schema: {
-            type: 'string'
-          } satisfies OpenAPIV3_1.SchemaObject
+            type: 'string',
+          } satisfies OpenAPIV3_1.SchemaObject,
         });
       }
     });
@@ -401,15 +402,15 @@ class OpenAPIStore {
     // Add request headers as parameters
     if (request.headers) {
       Object.entries(request.headers).forEach(([name, value]) => {
-        if (!endpoint.parameters.some(p => p.name === name)) {
+        if (!endpoint.parameters.some((p) => p.name === name)) {
           endpoint.parameters.push({
             name: name,
             in: 'header',
             required: false,
             schema: {
               type: 'string',
-              example: value
-            } satisfies OpenAPIV3_1.SchemaObject
+              example: value,
+            } satisfies OpenAPIV3_1.SchemaObject,
           });
         }
       });
@@ -421,19 +422,19 @@ class OpenAPIStore {
       if (endpoint.requestBody && !endpoint.requestBody.content[contentType]) {
         const schema = this.generateJsonSchema(request.body);
         endpoint.requestBody.content[contentType] = {
-          schema
+          schema,
         };
       }
     }
 
     // Add response schema
     const responseContentType = response.contentType || 'application/json';
-    
+
     // Initialize response object if it doesn't exist
     if (!endpoint.responses[response.status]) {
       endpoint.responses[response.status] = {
         description: `Response for ${method.toUpperCase()} ${path}`,
-        content: {}
+        content: {},
       };
     }
 
@@ -445,35 +446,38 @@ class OpenAPIStore {
 
     // Generate schema for the current response
     const currentSchema = this.generateJsonSchema(response.body);
-    
+
     // Get existing schemas for this endpoint and status code
     const schemaKey = `${key}:${response.status}:${responseContentType}`;
     const existingSchemas = this.schemaCache.get(schemaKey) || [];
-    
+
     // Add the current schema to the cache
     existingSchemas.push(currentSchema);
     this.schemaCache.set(schemaKey, existingSchemas);
-    
+
     // Merge all schemas for this endpoint and status code
     const mergedSchema = this.deepMergeSchemas(existingSchemas);
 
     // Update the content with the merged schema
     responseObj.content[responseContentType] = {
-      schema: mergedSchema
+      schema: mergedSchema,
     };
 
     // Add response headers
     if (response.headers && Object.keys(response.headers).length > 0) {
-      endpoint.responses[response.status].headers = Object.entries(response.headers).reduce((acc, [name, value]) => {
-        acc[name] = {
-          schema: {
-            type: 'string',
-            example: value
-          },
-          description: `Response header ${name}`
-        };
-        return acc;
-      }, {} as NonNullable<OpenAPIV3_1.ResponseObject['headers']>);
+      endpoint.responses[response.status].headers = Object.entries(response.headers).reduce(
+        (acc, [name, value]) => {
+          acc[name] = {
+            schema: {
+              type: 'string',
+              example: value,
+            },
+            description: `Response header ${name}`,
+          };
+          return acc;
+        },
+        {} as NonNullable<OpenAPIV3_1.ResponseObject['headers']>
+      );
     }
 
     this.endpoints.set(key, endpoint);
@@ -483,63 +487,70 @@ class OpenAPIStore {
   }
 
   public getOpenAPISpec(): OpenAPIV3_1.Document {
-    const paths = Array.from(this.endpoints.entries()).reduce<Required<PathsObject>>((acc, [key, info]) => {
-      const [method, path] = key.split(':');
-      
-      if (!acc[path]) {
-        acc[path] = {} as Required<PathItemObject>;
-      }
-      
-      const operation: OpenAPIV3_1.OperationObject = {
-        summary: `${method.toUpperCase()} ${path}`,
-        responses: info.responses,
-      };
+    const paths = Array.from(this.endpoints.entries()).reduce<Required<PathsObject>>(
+      (acc, [key, info]) => {
+        const [method, path] = key.split(':');
 
-      // Only include parameters if there are any
-      if (info.parameters.length > 0) {
-        // Filter out duplicate parameters and format them correctly
-        const uniqueParams = info.parameters.reduce<OpenAPIV3_1.ParameterObject[]>((params, param) => {
-          const existing = params.find(p => p.name === param.name && p.in === param.in);
-          if (!existing) {
-            const formattedParam: OpenAPIV3_1.ParameterObject = {
-              name: param.name,
-              in: param.in,
-              schema: {
-                type: 'string'
-              } satisfies OpenAPIV3_1.SchemaObject
-            };
+        if (!acc[path]) {
+          acc[path] = {} as Required<PathItemObject>;
+        }
 
-            // Only add required field for path parameters
-            if (param.in === 'path') {
-              formattedParam.required = true;
-            }
+        const operation: OpenAPIV3_1.OperationObject = {
+          summary: `${method.toUpperCase()} ${path}`,
+          responses: info.responses,
+        };
 
-            // Only add example for header parameters
-            if (param.in === 'header' && param.schema && 'example' in param.schema) {
-              (formattedParam.schema as OpenAPIV3_1.SchemaObject).example = param.schema.example;
-            }
+        // Only include parameters if there are any
+        if (info.parameters.length > 0) {
+          // Filter out duplicate parameters and format them correctly
+          const uniqueParams = info.parameters.reduce<OpenAPIV3_1.ParameterObject[]>(
+            (params, param) => {
+              const existing = params.find((p) => p.name === param.name && p.in === param.in);
+              if (!existing) {
+                const formattedParam: OpenAPIV3_1.ParameterObject = {
+                  name: param.name,
+                  in: param.in,
+                  schema: {
+                    type: 'string',
+                  } satisfies OpenAPIV3_1.SchemaObject,
+                };
 
-            params.push(formattedParam);
-          }
-          return params;
-        }, []);
+                // Only add required field for path parameters
+                if (param.in === 'path') {
+                  formattedParam.required = true;
+                }
 
-        operation.parameters = uniqueParams;
-      }
+                // Only add example for header parameters
+                if (param.in === 'header' && param.schema && 'example' in param.schema) {
+                  (formattedParam.schema as OpenAPIV3_1.SchemaObject).example =
+                    param.schema.example;
+                }
 
-      // Only include requestBody if it exists
-      if (info.requestBody) {
-        operation.requestBody = info.requestBody;
-      }
+                params.push(formattedParam);
+              }
+              return params;
+            },
+            []
+          );
 
-      // Add security if it exists
-      if (info.security) {
-        operation.security = info.security;
-      }
+          operation.parameters = uniqueParams;
+        }
 
-      acc[path][method.toLowerCase()] = operation;
-      return acc;
-    }, {});
+        // Only include requestBody if it exists
+        if (info.requestBody) {
+          operation.requestBody = info.requestBody;
+        }
+
+        // Add security if it exists
+        if (info.security) {
+          operation.security = info.security;
+        }
+
+        acc[path][method.toLowerCase()] = operation;
+        return acc;
+      },
+      {}
+    );
 
     const spec: OpenAPIV3_1.Document = {
       openapi: '3.1.0',
@@ -548,9 +559,11 @@ class OpenAPIStore {
         version: '1.0.0',
         description: 'Automatically generated API documentation from proxy traffic',
       },
-      servers: [{
-        url: this.targetUrl,
-      }],
+      servers: [
+        {
+          url: this.targetUrl,
+        },
+      ],
       paths,
       components: {
         securitySchemes: Object.fromEntries(this.securitySchemes),
@@ -559,11 +572,11 @@ class OpenAPIStore {
             type: 'object',
             properties: {
               id: { type: 'integer' },
-              name: { type: 'string' }
-            }
-          }
-        }
-      }
+              name: { type: 'string' },
+            },
+          },
+        },
+      },
     };
 
     return spec;
@@ -575,7 +588,7 @@ class OpenAPIStore {
       indent: 2,
       simpleKeys: true,
       aliasDuplicateObjects: false,
-      strict: true
+      strict: true,
     });
   }
 
@@ -589,16 +602,10 @@ class OpenAPIStore {
     }
 
     // Save JSON spec
-    fs.writeFileSync(
-      path.join(outputDir, 'openapi.json'),
-      JSON.stringify(spec, null, 2)
-    );
+    fs.writeFileSync(path.join(outputDir, 'openapi.json'), JSON.stringify(spec, null, 2));
 
     // Save YAML spec
-    fs.writeFileSync(
-      path.join(outputDir, 'openapi.yaml'),
-      yamlSpec
-    );
+    fs.writeFileSync(path.join(outputDir, 'openapi.yaml'), yamlSpec);
   }
 
   public generateHAR(): any {
@@ -615,4 +622,4 @@ class OpenAPIStore {
   }
 }
 
-export const openApiStore = new OpenAPIStore(); 
+export const openApiStore = new OpenAPIStore();

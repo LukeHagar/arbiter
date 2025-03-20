@@ -17,7 +17,9 @@ export interface ServerOptions {
   verbose?: boolean;
 }
 
-export async function startServers(options: ServerOptions): Promise<{ proxyServer: Server; docsServer: Server }> {
+export async function startServers(
+  options: ServerOptions
+): Promise<{ proxyServer: Server; docsServer: Server }> {
   // Set the target URL in the OpenAPI store
   openApiStore.setTargetUrl(options.target);
 
@@ -32,11 +34,11 @@ export async function startServers(options: ServerOptions): Promise<{ proxyServe
     selfHandleResponse: true,
     target: options.target,
     headers: {
-      'Host': new URL(options.target).host
+      Host: new URL(options.target).host,
     },
     agent: new Agent({
-      rejectUnauthorized: false
-    })
+      rejectUnauthorized: false,
+    }),
   });
 
   // Set up error handlers
@@ -129,10 +131,11 @@ export async function startServers(options: ServerOptions): Promise<{ proxyServe
         method: c.req.method,
         headers: new Headers({
           'content-type': c.req.header('content-type') || 'application/json',
-          'accept': c.req.header('accept') || 'application/json',
+          accept: c.req.header('accept') || 'application/json',
           ...Object.fromEntries(
-            Object.entries(c.req.header())
-              .filter(([key]) => !['content-type', 'accept'].includes(key.toLowerCase()))
+            Object.entries(c.req.header()).filter(
+              ([key]) => !['content-type', 'accept'].includes(key.toLowerCase())
+            )
           ),
         }),
         body: c.req.method !== 'GET' && c.req.method !== 'HEAD' ? requestBody : undefined,
@@ -157,20 +160,20 @@ export async function startServers(options: ServerOptions): Promise<{ proxyServe
           query: Object.fromEntries(new URL(c.req.url).searchParams),
           body: requestBody,
           contentType: c.req.header('content-type') || 'application/json',
-          headers: Object.fromEntries(Object.entries(c.req.header()))
+          headers: Object.fromEntries(Object.entries(c.req.header())),
         },
         {
           status: proxyRes.status,
           body: responseBody,
           contentType: proxyRes.headers.get('content-type') || 'application/json',
-          headers: Object.fromEntries(proxyRes.headers.entries())
+          headers: Object.fromEntries(proxyRes.headers.entries()),
         }
       );
 
       // Create a new response with the correct content type and body
       return new Response(JSON.stringify(responseBody), {
         status: proxyRes.status,
-        headers: Object.fromEntries(proxyRes.headers.entries())
+        headers: Object.fromEntries(proxyRes.headers.entries()),
       });
     } catch (error: any) {
       console.error('Proxy request failed:', error);
@@ -207,10 +210,14 @@ export async function startServers(options: ServerOptions): Promise<{ proxyServe
   const availableDocsPort = await findAvailablePort(options.docsPort);
 
   if (availableProxyPort !== options.proxyPort) {
-    console.log(chalk.yellow(`Port ${options.proxyPort} is in use, using port ${availableProxyPort} instead`));
+    console.log(
+      chalk.yellow(`Port ${options.proxyPort} is in use, using port ${availableProxyPort} instead`)
+    );
   }
   if (availableDocsPort !== options.docsPort) {
-    console.log(chalk.yellow(`Port ${options.docsPort} is in use, using port ${availableDocsPort} instead`));
+    console.log(
+      chalk.yellow(`Port ${options.docsPort} is in use, using port ${availableDocsPort} instead`)
+    );
   }
 
   console.log(chalk.blue(`Starting proxy server on port ${availableProxyPort}...`));
@@ -220,13 +227,13 @@ export async function startServers(options: ServerOptions): Promise<{ proxyServe
   const proxyServer = createServer(async (req, res) => {
     try {
       const url = new URL(req.url || '/', `http://localhost:${availableProxyPort}`);
-      
+
       // Read the request body if present
       let body: string | undefined;
       if (req.method !== 'GET' && req.method !== 'HEAD') {
         body = await new Promise((resolve, reject) => {
           const chunks: Buffer[] = [];
-          req.on('data', chunk => chunks.push(chunk));
+          req.on('data', (chunk) => chunks.push(chunk));
           req.on('end', () => resolve(Buffer.concat(chunks).toString()));
           req.on('error', reject);
         });
@@ -240,7 +247,7 @@ export async function startServers(options: ServerOptions): Promise<{ proxyServe
         method: req.method || 'GET',
         headers,
         body: body,
-        duplex: 'half'
+        duplex: 'half',
       });
 
       // Forward the request to the target server
@@ -249,7 +256,7 @@ export async function startServers(options: ServerOptions): Promise<{ proxyServe
         method: request.method,
         headers: request.headers,
         body: body,
-        duplex: 'half'
+        duplex: 'half',
       });
 
       // Get response body
@@ -275,17 +282,21 @@ export async function startServers(options: ServerOptions): Promise<{ proxyServe
           body: body ? JSON.parse(body) : undefined,
           contentType: headers['content-type'] || 'application/json',
           headers,
-          security: headers['x-api-key'] ? [{
-            type: 'apiKey',
-            name: 'x-api-key',
-            in: 'header'
-          }] : undefined
+          security: headers['x-api-key']
+            ? [
+                {
+                  type: 'apiKey',
+                  name: 'x-api-key',
+                  in: 'header',
+                },
+              ]
+            : undefined,
         },
         {
           status: response.status,
           body: responseBody,
           contentType: contentType || 'application/json',
-          headers: Object.fromEntries(response.headers.entries())
+          headers: Object.fromEntries(response.headers.entries()),
         }
       );
 
@@ -369,4 +380,4 @@ export async function startServers(options: ServerOptions): Promise<{ proxyServe
   console.log('\n' + chalk.yellow('Press Ctrl+C to stop'));
 
   return { proxyServer, docsServer };
-} 
+}

@@ -18,21 +18,21 @@ describe('HAR Recorder Middleware', () => {
         path: '/test',
         query: {},
         header: () => ({
-          'content-type': 'application/json'
-        })
+          'content-type': 'application/json',
+        }),
       },
       header: () => undefined,
       get: (key: string) => store.get(key),
       set: (key: string, value: any) => store.set(key, value),
-      res: undefined
+      res: undefined,
     } as unknown as Context;
 
     const next = async () => {
       ctx.res = new Response(JSON.stringify({ success: true }), {
         status: 200,
         headers: new Headers({
-          'content-type': 'application/json'
-        })
+          'content-type': 'application/json',
+        }),
       });
     };
 
@@ -55,21 +55,21 @@ describe('HAR Recorder Middleware', () => {
         path: '/test',
         query: { foo: 'bar', baz: 'qux' },
         header: () => ({
-          'content-type': 'application/json'
-        })
+          'content-type': 'application/json',
+        }),
       },
       header: () => undefined,
       get: (key: string) => store.get(key),
       set: (key: string, value: any) => store.set(key, value),
-      res: undefined
+      res: undefined,
     } as unknown as Context;
 
     const next = async () => {
       ctx.res = new Response(JSON.stringify({ success: true }), {
         status: 200,
         headers: new Headers({
-          'content-type': 'application/json'
-        })
+          'content-type': 'application/json',
+        }),
       });
     };
 
@@ -78,7 +78,7 @@ describe('HAR Recorder Middleware', () => {
     const har = openApiStore.generateHAR();
     expect(har.log.entries[0].request.queryString).toEqual([
       { name: 'foo', value: 'bar' },
-      { name: 'baz', value: 'qux' }
+      { name: 'baz', value: 'qux' },
     ]);
   });
 
@@ -86,7 +86,7 @@ describe('HAR Recorder Middleware', () => {
     const store = new Map<string, any>();
     const customHeaders: Record<string, string> = {
       'content-type': 'application/json',
-      'x-custom-header': 'test-value'
+      'x-custom-header': 'test-value',
     };
 
     const ctx = {
@@ -95,20 +95,20 @@ describe('HAR Recorder Middleware', () => {
         url: 'http://localhost:8080/test',
         path: '/test',
         query: {},
-        header: () => customHeaders
+        header: () => customHeaders,
       },
-      header: (name?: string) => name ? customHeaders[name] : customHeaders,
+      header: (name?: string) => (name ? customHeaders[name] : customHeaders),
       get: (key: string) => store.get(key),
       set: (key: string, value: any) => store.set(key, value),
-      res: undefined
+      res: undefined,
     } as unknown as Context;
 
     const next = async () => {
       ctx.res = new Response(JSON.stringify({ success: true }), {
         status: 200,
         headers: new Headers({
-          'content-type': 'application/json'
-        })
+          'content-type': 'application/json',
+        }),
       });
     };
 
@@ -117,7 +117,7 @@ describe('HAR Recorder Middleware', () => {
     const har = openApiStore.generateHAR();
     expect(har.log.entries[0].request.headers).toContainEqual({
       name: 'x-custom-header',
-      value: 'test-value'
+      value: 'test-value',
     });
   });
 
@@ -130,13 +130,13 @@ describe('HAR Recorder Middleware', () => {
         path: '/test',
         query: {},
         header: () => ({
-          'content-type': 'application/json'
-        })
+          'content-type': 'application/json',
+        }),
       },
       header: () => undefined,
       get: (key: string) => store.get(key),
       set: (key: string, value: any) => store.set(key, value),
-      res: undefined
+      res: undefined,
     } as unknown as Context;
 
     const next = async () => {
@@ -144,8 +144,8 @@ describe('HAR Recorder Middleware', () => {
         status: 200,
         headers: new Headers({
           'content-type': 'application/json',
-          'x-custom-response': 'test-value'
-        })
+          'x-custom-response': 'test-value',
+        }),
       });
     };
 
@@ -154,7 +154,7 @@ describe('HAR Recorder Middleware', () => {
     const har = openApiStore.generateHAR();
     expect(har.log.entries[0].response.headers).toContainEqual({
       name: 'x-custom-response',
-      value: 'test-value'
+      value: 'test-value',
     });
   });
-}); 
+});

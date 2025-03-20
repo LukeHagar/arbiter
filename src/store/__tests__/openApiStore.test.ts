@@ -16,12 +16,12 @@ describe('OpenAPI Store', () => {
     const request = {
       query: {},
       body: null,
-      contentType: 'application/json'
+      contentType: 'application/json',
     };
     const response = {
       status: 200,
       body: { success: true },
-      contentType: 'application/json'
+      contentType: 'application/json',
     };
 
     openApiStore.recordEndpoint(path, method, request, response);
@@ -31,14 +31,14 @@ describe('OpenAPI Store', () => {
     expect(paths).toBeDefined();
     expect(paths[path]).toBeDefined();
     expect(paths[path]?.[method]).toBeDefined();
-    
+
     const operation = paths[path]?.[method] as OpenAPIV3_1.OperationObject;
     expect(operation).toBeDefined();
-    
+
     const responses = operation.responses as Record<string, OpenAPIV3_1.ResponseObject>;
     expect(responses).toBeDefined();
     expect(responses['200']).toBeDefined();
-    
+
     const responseObj = responses['200'];
     expect(responseObj.content).toBeDefined();
     const content = responseObj.content as Record<string, OpenAPIV3_1.MediaTypeObject>;
@@ -48,15 +48,23 @@ describe('OpenAPI Store', () => {
 
   it('should handle multiple endpoints', () => {
     const endpoints = [
-      { path: '/test1', method: 'get', response: { status: 200, body: { success: true }, contentType: 'application/json' } },
-      { path: '/test2', method: 'post', response: { status: 201, body: { id: 1 }, contentType: 'application/json' } }
+      {
+        path: '/test1',
+        method: 'get',
+        response: { status: 200, body: { success: true }, contentType: 'application/json' },
+      },
+      {
+        path: '/test2',
+        method: 'post',
+        response: { status: 201, body: { id: 1 }, contentType: 'application/json' },
+      },
     ];
 
     endpoints.forEach(({ path, method, response }) => {
       const request = {
         query: {},
         body: null,
-        contentType: 'application/json'
+        contentType: 'application/json',
       };
       openApiStore.recordEndpoint(path, method, request, response);
     });
@@ -65,10 +73,10 @@ describe('OpenAPI Store', () => {
     const paths = spec.paths as OpenAPIV3_1.PathsObject;
     expect(paths).toBeDefined();
     expect(Object.keys(paths)).toHaveLength(2);
-    
+
     const test1Path = paths['/test1'];
     const test2Path = paths['/test2'];
-    
+
     expect(test1Path).toBeDefined();
     expect(test2Path).toBeDefined();
     expect(test1Path?.get).toBeDefined();
@@ -82,15 +90,15 @@ describe('OpenAPI Store', () => {
     const request = {
       query: {},
       body: null,
-      contentType: 'application/json'
+      contentType: 'application/json',
     };
     const response = {
       status: 200,
       body: { success: true },
       contentType: 'application/json',
       headers: {
-        'content-type': 'application/json'
-      }
+        'content-type': 'application/json',
+      },
     };
 
     openApiStore.recordEndpoint(path, method, request, response);
@@ -105,7 +113,7 @@ describe('OpenAPI Store', () => {
     expect(har.log.entries[0].response.content.text).toBe(JSON.stringify(response.body));
     expect(har.log.entries[0].response.headers).toContainEqual({
       name: 'content-type',
-      value: 'application/json'
+      value: 'application/json',
     });
   });
 
@@ -115,12 +123,12 @@ describe('OpenAPI Store', () => {
     const request = {
       query: {},
       body: null,
-      contentType: 'application/json'
+      contentType: 'application/json',
     };
     const response = {
       status: 200,
       body: { success: true },
-      contentType: 'application/json'
+      contentType: 'application/json',
     };
 
     openApiStore.recordEndpoint(endpointPath, method, request, response);
@@ -134,7 +142,7 @@ describe('OpenAPI Store', () => {
 
   it('should save both JSON and YAML specs', () => {
     const testDir = path.join(process.cwd(), 'test-output');
-    
+
     // Clean up test directory if it exists
     if (fs.existsSync(testDir)) {
       fs.rmSync(testDir, { recursive: true, force: true });
@@ -145,12 +153,12 @@ describe('OpenAPI Store', () => {
     const request = {
       query: {},
       body: null,
-      contentType: 'application/json'
+      contentType: 'application/json',
     };
     const response = {
       status: 200,
       body: { success: true },
-      contentType: 'application/json'
+      contentType: 'application/json',
     };
 
     openApiStore.recordEndpoint(endpointPath, method, request, response);
@@ -173,18 +181,20 @@ describe('OpenAPI Store', () => {
         body: null,
         contentType: 'application/json',
         headers: {
-          'X-API-Key': 'test-api-key'
+          'X-API-Key': 'test-api-key',
         },
-        security: [{
-          type: 'apiKey' as const,
-          name: 'X-API-Key',
-          in: 'header' as const
-        }]
+        security: [
+          {
+            type: 'apiKey' as const,
+            name: 'X-API-Key',
+            in: 'header' as const,
+          },
+        ],
       };
       const response = {
         status: 200,
         body: { success: true },
-        contentType: 'application/json'
+        contentType: 'application/json',
       };
 
       openApiStore.recordEndpoint(endpointPath, method, request, response);
@@ -192,7 +202,7 @@ describe('OpenAPI Store', () => {
       const spec = openApiStore.getOpenAPISpec();
       const paths = spec.paths as OpenAPIV3_1.PathsObject;
       const operation = paths[endpointPath]?.[method] as OpenAPIV3_1.OperationObject;
-      
+
       expect(operation.security).toBeDefined();
       expect(operation.security?.[0]).toHaveProperty('apiKey_');
       const securitySchemes = spec.components?.securitySchemes;
@@ -200,7 +210,7 @@ describe('OpenAPI Store', () => {
       expect(securitySchemes?.['apiKey_']).toEqual({
         type: 'apiKey',
         name: 'X-API-Key',
-        in: 'header'
+        in: 'header',
       });
 
       // Check HAR entry
@@ -208,7 +218,7 @@ describe('OpenAPI Store', () => {
       const entry = har.log.entries[0];
       expect(entry.request.headers).toContainEqual({
         name: 'x-api-key',
-        value: 'test-api-key'
+        value: 'test-api-key',
       });
     });
 
@@ -220,26 +230,28 @@ describe('OpenAPI Store', () => {
         body: null,
         contentType: 'application/json',
         headers: {
-          'Authorization': 'Bearer test-token'
+          Authorization: 'Bearer test-token',
         },
-        security: [{
-          type: 'oauth2' as const,
-          flows: {
-            authorizationCode: {
-              authorizationUrl: 'https://example.com/oauth/authorize',
-              tokenUrl: 'https://example.com/oauth/token',
-              scopes: {
-                'read': 'Read access',
-                'write': 'Write access'
-              }
-            }
-          }
-        }]
+        security: [
+          {
+            type: 'oauth2' as const,
+            flows: {
+              authorizationCode: {
+                authorizationUrl: 'https://example.com/oauth/authorize',
+                tokenUrl: 'https://example.com/oauth/token',
+                scopes: {
+                  read: 'Read access',
+                  write: 'Write access',
+                },
+              },
+            },
+          },
+        ],
       };
       const response = {
         status: 200,
         body: { success: true },
-        contentType: 'application/json'
+        contentType: 'application/json',
       };
 
       openApiStore.recordEndpoint(endpointPath, method, request, response);
@@ -247,7 +259,7 @@ describe('OpenAPI Store', () => {
       const spec = openApiStore.getOpenAPISpec();
       const paths = spec.paths as OpenAPIV3_1.PathsObject;
       const operation = paths[endpointPath]?.[method] as OpenAPIV3_1.OperationObject;
-      
+
       expect(operation.security).toBeDefined();
       expect(operation.security?.[0]).toHaveProperty('oauth2_');
       const securitySchemes = spec.components?.securitySchemes;
@@ -259,11 +271,11 @@ describe('OpenAPI Store', () => {
             authorizationUrl: 'https://example.com/oauth/authorize',
             tokenUrl: 'https://example.com/oauth/token',
             scopes: {
-              'read': 'Read access',
-              'write': 'Write access'
-            }
-          }
-        }
+              read: 'Read access',
+              write: 'Write access',
+            },
+          },
+        },
       });
 
       // Check HAR entry
@@ -271,7 +283,7 @@ describe('OpenAPI Store', () => {
       const entry = har.log.entries[0];
       expect(entry.request.headers).toContainEqual({
         name: 'authorization',
-        value: 'Bearer test-token'
+        value: 'Bearer test-token',
       });
     });
 
@@ -283,17 +295,19 @@ describe('OpenAPI Store', () => {
         body: null,
         contentType: 'application/json',
         headers: {
-          'Authorization': 'Basic dXNlcm5hbWU6cGFzc3dvcmQ='
+          Authorization: 'Basic dXNlcm5hbWU6cGFzc3dvcmQ=',
         },
-        security: [{
-          type: 'http' as const,
-          scheme: 'basic' as const
-        }]
+        security: [
+          {
+            type: 'http' as const,
+            scheme: 'basic' as const,
+          },
+        ],
       };
       const response = {
         status: 200,
         body: { success: true },
-        contentType: 'application/json'
+        contentType: 'application/json',
       };
 
       openApiStore.recordEndpoint(endpointPath, method, request, response);
@@ -301,14 +315,14 @@ describe('OpenAPI Store', () => {
       const spec = openApiStore.getOpenAPISpec();
       const paths = spec.paths as OpenAPIV3_1.PathsObject;
       const operation = paths[endpointPath]?.[method] as OpenAPIV3_1.OperationObject;
-      
+
       expect(operation.security).toBeDefined();
       expect(operation.security?.[0]).toHaveProperty('http_');
       const securitySchemes = spec.components?.securitySchemes;
       expect(securitySchemes).toBeDefined();
       expect(securitySchemes?.['http_']).toEqual({
         type: 'http',
-        scheme: 'basic'
+        scheme: 'basic',
       });
 
       // Check HAR entry
@@ -316,7 +330,7 @@ describe('OpenAPI Store', () => {
       const entry = har.log.entries[0];
       expect(entry.request.headers).toContainEqual({
         name: 'authorization',
-        value: 'Basic dXNlcm5hbWU6cGFzc3dvcmQ='
+        value: 'Basic dXNlcm5hbWU6cGFzc3dvcmQ=',
       });
     });
 
@@ -328,17 +342,19 @@ describe('OpenAPI Store', () => {
         body: null,
         contentType: 'application/json',
         headers: {
-          'Authorization': 'Bearer test-oidc-token'
+          Authorization: 'Bearer test-oidc-token',
         },
-        security: [{
-          type: 'openIdConnect' as const,
-          openIdConnectUrl: 'https://example.com/.well-known/openid-configuration'
-        }]
+        security: [
+          {
+            type: 'openIdConnect' as const,
+            openIdConnectUrl: 'https://example.com/.well-known/openid-configuration',
+          },
+        ],
       };
       const response = {
         status: 200,
         body: { success: true },
-        contentType: 'application/json'
+        contentType: 'application/json',
       };
 
       openApiStore.recordEndpoint(endpointPath, method, request, response);
@@ -346,14 +362,14 @@ describe('OpenAPI Store', () => {
       const spec = openApiStore.getOpenAPISpec();
       const paths = spec.paths as OpenAPIV3_1.PathsObject;
       const operation = paths[endpointPath]?.[method] as OpenAPIV3_1.OperationObject;
-      
+
       expect(operation.security).toBeDefined();
       expect(operation.security?.[0]).toHaveProperty('openIdConnect_');
       const securitySchemes = spec.components?.securitySchemes;
       expect(securitySchemes).toBeDefined();
       expect(securitySchemes?.['openIdConnect_']).toEqual({
         type: 'openIdConnect',
-        openIdConnectUrl: 'https://example.com/.well-known/openid-configuration'
+        openIdConnectUrl: 'https://example.com/.well-known/openid-configuration',
       });
 
       // Check HAR entry
@@ -361,7 +377,7 @@ describe('OpenAPI Store', () => {
       const entry = har.log.entries[0];
       expect(entry.request.headers).toContainEqual({
         name: 'authorization',
-        value: 'Bearer test-oidc-token'
+        value: 'Bearer test-oidc-token',
       });
     });
 
@@ -374,24 +390,24 @@ describe('OpenAPI Store', () => {
         contentType: 'application/json',
         headers: {
           'X-API-Key': 'test-api-key',
-          'Authorization': 'Bearer test-token'
+          Authorization: 'Bearer test-token',
         },
         security: [
           {
             type: 'apiKey' as const,
             name: 'X-API-Key',
-            in: 'header' as const
+            in: 'header' as const,
           },
           {
             type: 'http' as const,
-            scheme: 'bearer' as const
-          }
-        ]
+            scheme: 'bearer' as const,
+          },
+        ],
       };
       const response = {
         status: 200,
         body: { success: true },
-        contentType: 'application/json'
+        contentType: 'application/json',
       };
 
       openApiStore.recordEndpoint(endpointPath, method, request, response);
@@ -399,7 +415,7 @@ describe('OpenAPI Store', () => {
       const spec = openApiStore.getOpenAPISpec();
       const paths = spec.paths as OpenAPIV3_1.PathsObject;
       const operation = paths[endpointPath]?.[method] as OpenAPIV3_1.OperationObject;
-      
+
       expect(operation.security).toBeDefined();
       expect(operation.security).toHaveLength(2);
       expect(operation.security?.[0]).toHaveProperty('apiKey_');
@@ -410,11 +426,11 @@ describe('OpenAPI Store', () => {
       const entry = har.log.entries[0];
       expect(entry.request.headers).toContainEqual({
         name: 'x-api-key',
-        value: 'test-api-key'
+        value: 'test-api-key',
       });
       expect(entry.request.headers).toContainEqual({
         name: 'authorization',
-        value: 'Bearer test-token'
+        value: 'Bearer test-token',
       });
     });
   });
@@ -426,16 +442,16 @@ describe('OpenAPI Store', () => {
           type: 'object',
           properties: {
             name: { type: 'string' },
-            age: { type: 'number' }
-          }
+            age: { type: 'number' },
+          },
         },
         {
           type: 'object',
           properties: {
             email: { type: 'string' },
-            age: { type: 'integer' }
-          }
-        }
+            age: { type: 'integer' },
+          },
+        },
       ];
 
       const merged = openApiStore['deepMergeSchemas'](schemas);
@@ -446,12 +462,9 @@ describe('OpenAPI Store', () => {
           email: { type: 'string' },
           age: {
             type: 'object',
-            oneOf: [
-              { type: 'number' },
-              { type: 'integer' }
-            ]
-          }
-        }
+            oneOf: [{ type: 'number' }, { type: 'integer' }],
+          },
+        },
       });
     });
 
@@ -459,16 +472,13 @@ describe('OpenAPI Store', () => {
       const schemas: OpenAPIV3_1.SchemaObject[] = [
         { type: 'string' },
         { type: 'number' },
-        { type: 'string' } // Duplicate
+        { type: 'string' }, // Duplicate
       ];
 
       const merged = openApiStore['deepMergeSchemas'](schemas);
       expect(merged).toEqual({
         type: 'object',
-        oneOf: [
-          { type: 'string' },
-          { type: 'number' }
-        ]
+        oneOf: [{ type: 'string' }, { type: 'number' }],
       });
     });
 
@@ -476,7 +486,7 @@ describe('OpenAPI Store', () => {
       const schemas: OpenAPIV3_1.SchemaObject[] = [
         { type: 'string', format: 'email' },
         { type: 'string', format: 'uri' },
-        { type: 'string', format: 'email' } // Duplicate
+        { type: 'string', format: 'email' }, // Duplicate
       ];
 
       const merged = openApiStore['deepMergeSchemas'](schemas);
@@ -484,8 +494,8 @@ describe('OpenAPI Store', () => {
         type: 'object',
         oneOf: [
           { type: 'string', format: 'email' },
-          { type: 'string', format: 'uri' }
-        ]
+          { type: 'string', format: 'uri' },
+        ],
       });
     });
 
@@ -493,7 +503,7 @@ describe('OpenAPI Store', () => {
       const schemas: OpenAPIV3_1.SchemaObject[] = [
         { type: 'object', properties: { name: { type: 'string' } } },
         { type: 'object', properties: { age: { type: 'number' } } },
-        { type: 'object', properties: { name: { type: 'string' } } } // Duplicate
+        { type: 'object', properties: { name: { type: 'string' } } }, // Duplicate
       ];
 
       const merged = openApiStore['deepMergeSchemas'](schemas);
@@ -501,8 +511,8 @@ describe('OpenAPI Store', () => {
         type: 'object',
         properties: {
           name: { type: 'string' },
-          age: { type: 'number' }
-        }
+          age: { type: 'number' },
+        },
       });
     });
 
@@ -511,7 +521,7 @@ describe('OpenAPI Store', () => {
         { type: 'string' },
         { type: 'object', properties: { name: { type: 'string' } } },
         { type: 'array', items: { type: 'string' } },
-        { type: 'string' } // Duplicate
+        { type: 'string' }, // Duplicate
       ];
 
       const merged = openApiStore['deepMergeSchemas'](schemas);
@@ -520,8 +530,8 @@ describe('OpenAPI Store', () => {
         oneOf: [
           { type: 'string' },
           { type: 'object', properties: { name: { type: 'string' } } },
-          { type: 'array', items: { type: 'string' } }
-        ]
+          { type: 'array', items: { type: 'string' } },
+        ],
       });
     });
 
@@ -532,19 +542,19 @@ describe('OpenAPI Store', () => {
           properties: {
             user: {
               type: 'object',
-              properties: { name: { type: 'string' } }
-            }
-          }
+              properties: { name: { type: 'string' } },
+            },
+          },
         },
         {
           type: 'object',
           properties: {
             user: {
               type: 'object',
-              properties: { age: { type: 'number' } }
-            }
-          }
-        }
+              properties: { age: { type: 'number' } },
+            },
+          },
+        },
       ];
 
       const merged = openApiStore['deepMergeSchemas'](schemas);
@@ -555,11 +565,11 @@ describe('OpenAPI Store', () => {
             type: 'object',
             properties: {
               name: { type: 'string' },
-              age: { type: 'number' }
-            }
-          }
-        }
+              age: { type: 'number' },
+            },
+          },
+        },
       });
     });
   });
-}); 
+});

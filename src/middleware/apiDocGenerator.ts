@@ -15,8 +15,11 @@ export const apiDocGenerator = async (c: Context, next: () => Promise<void>) => 
     },
     {
       status: c.res.status,
-      body: await c.res.clone().json().catch(() => null),
+      body: await c.res
+        .clone()
+        .json()
+        .catch(() => null),
       contentType: c.res.headers.get('content-type') || 'application/json',
     }
   );
-}; 
+};

@@ -27,7 +27,7 @@ startServers({
   target: options.target,
   proxyPort: parseInt(options.port),
   docsPort: parseInt(options.docsPort),
-  verbose: options.verbose
+  verbose: options.verbose,
 }).catch((error) => {
   console.error(chalk.red('Failed to start servers:'), error);
   process.exit(1);

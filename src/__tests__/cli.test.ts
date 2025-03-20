@@ -36,16 +36,9 @@ describe('CLI Options', () => {
       .option('-p, --port <number>', 'port to run the proxy server on', '8080')
       .option('-d, --docs-port <number>', 'port to run the documentation server on', '9000');
 
-    const options = program.parse([
-      'node',
-      'arbiter',
-      '-t',
-      'http://example.com',
-      '-p',
-      '8081',
-      '-d',
-      '9001',
-    ]).opts();
+    const options = program
+      .parse(['node', 'arbiter', '-t', 'http://example.com', '-p', '8081', '-d', '9001'])
+      .opts();
 
     expect(options.port).toBe('8081');
     expect(options.docsPort).toBe('9001');
@@ -60,14 +53,9 @@ describe('CLI Options', () => {
       .requiredOption('-t, --target <url>', 'target API URL to proxy to')
       .option('-k, --key <string>', 'API key to add to proxied requests');
 
-    const options = program.parse([
-      'node',
-      'arbiter',
-      '-t',
-      'http://example.com',
-      '-k',
-      'test-api-key',
-    ]).opts();
+    const options = program
+      .parse(['node', 'arbiter', '-t', 'http://example.com', '-k', 'test-api-key'])
+      .opts();
 
     expect(options.key).toBe('test-api-key');
   });
@@ -83,23 +71,15 @@ describe('CLI Options', () => {
       .option('--proxy-only', 'run only the proxy server');
 
     // Test docs-only mode
-    const docsOptions = program.parse([
-      'node',
-      'arbiter',
-      '-t',
-      'http://example.com',
-      '--docs-only',
-    ]).opts();
+    const docsOptions = program
+      .parse(['node', 'arbiter', '-t', 'http://example.com', '--docs-only'])
+      .opts();
     expect(docsOptions.docsOnly).toBe(true);
 
     // Test proxy-only mode
-    const proxyOptions = program.parse([
-      'node',
-      'arbiter',
-      '-t',
-      'http://example.com',
-      '--proxy-only',
-    ]).opts();
+    const proxyOptions = program
+      .parse(['node', 'arbiter', '-t', 'http://example.com', '--proxy-only'])
+      .opts();
     expect(proxyOptions.proxyOnly).toBe(true);
   });
-}); 
+});
