@@ -2,33 +2,6 @@ import type { Context, Next } from 'hono';
 import type { OpenAPIStore } from '../store/openApiStore.js';
 import { SecurityInfo } from '../store/openApiStore.js';
 
-interface HAREntry {
-  startedDateTime: string;
-  time: number;
-  request: {
-    method: string;
-    url: string;
-    httpVersion: string;
-    headers: Array<{ name: string; value: string }>;
-    queryString: Array<{ name: string; value: string }>;
-    postData?: {
-      mimeType: string;
-      text: string;
-    };
-  };
-  response: {
-    status: number;
-    statusText: string;
-    httpVersion: string;
-    headers: Array<{ name: string; value: string }>;
-    content: {
-      size: number;
-      mimeType: string;
-      text: string;
-    };
-  };
-}
-
 export function harRecorder(store: OpenAPIStore): (c: Context, next: Next) => Promise<void> {
   return async (c: Context, next: Next): Promise<void> => {
     const startTime = Date.now();
@@ -45,15 +18,45 @@ export function harRecorder(store: OpenAPIStore): (c: Context, next: Next) => Pr
 
     // Record the request/response in HAR format
     try {
-      store.recordHAREntry({
-        request: c.req.raw,
-        response: c.res,
-        timing: {
-          wait: responseTime,
-          receive: 0,
-          send: 0,
+      const url = new URL(c.req.url);
+      const queryParams: Record<string, string> = {};
+      for (const [key, value] of url.searchParams.entries()) {
+        queryParams[key] = value;
+      }
+
+      // Get request headers
+      const requestHeaders: Record<string, string> = {};
+      for (const [key, value] of Object.entries(c.req.header())) {
+        if (typeof value === 'string') {
+          requestHeaders[key] = value;
+        }
+      }
+
+      // Get response headers
+      const responseHeaders: Record<string, string> = {};
+      if (c.res) {
+        for (const [key, value] of c.res.headers.entries()) {
+          responseHeaders[key] = value;
+        }
+      }
+
+      // Record the endpoint
+      store.recordEndpoint(
+        c.req.path,
+        c.req.method.toLowerCase(),
+        {
+          query: queryParams,
+          headers: requestHeaders,
+          contentType: c.req.header('content-type') || 'application/json',
+          body: undefined, // We'll need to handle body parsing if needed
         },
-      });
+        {
+          status: c.res?.status || 500,
+          headers: responseHeaders,
+          contentType: c.res?.headers.get('content-type') || 'application/json',
+          body: c.res ? await c.res.clone().text() : '',
+        }
+      );
     } catch (error) {
       console.error('Error recording HAR entry:', error);
     }

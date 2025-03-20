@@ -36,7 +36,9 @@ describe('HAR Recorder Middleware', () => {
       });
     };
 
-    await harRecorder(ctx, next);
+    // Get the middleware function and call it
+    const middleware = harRecorder(openApiStore);
+    await middleware(ctx, next);
 
     const har = openApiStore.generateHAR();
     expect(har.log.entries).toHaveLength(1);
@@ -73,7 +75,9 @@ describe('HAR Recorder Middleware', () => {
       });
     };
 
-    await harRecorder(ctx, next);
+    // Get the middleware function and call it
+    const middleware = harRecorder(openApiStore);
+    await middleware(ctx, next);
 
     const har = openApiStore.generateHAR();
     expect(har.log.entries[0].request.queryString).toEqual([
@@ -112,7 +116,9 @@ describe('HAR Recorder Middleware', () => {
       });
     };
 
-    await harRecorder(ctx, next);
+    // Get the middleware function and call it
+    const middleware = harRecorder(openApiStore);
+    await middleware(ctx, next);
 
     const har = openApiStore.generateHAR();
     expect(har.log.entries[0].request.headers).toContainEqual({
@@ -149,7 +155,9 @@ describe('HAR Recorder Middleware', () => {
       });
     };
 
-    await harRecorder(ctx, next);
+    // Get the middleware function and call it
+    const middleware = harRecorder(openApiStore);
+    await middleware(ctx, next);
 
     const har = openApiStore.generateHAR();
     expect(har.log.entries[0].response.headers).toContainEqual({
