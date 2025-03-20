@@ -4,7 +4,7 @@ import type { OpenAPIStore } from '../store/openApiStore.js';
 export function apiDocGenerator(store: OpenAPIStore): (c: Context, next: Next) => Promise<void> {
   return async (c: Context, next: Next): Promise<void> => {
     const startTime = Date.now();
-    
+
     try {
       await next();
     } catch (error) {

@@ -41,19 +41,19 @@ describe('Arbiter Integration Tests', () => {
   const targetPort = 3001;
   const proxyPort = 3002;
   const docsPort = 3003;
-  
+
   let targetServer: any;
   let proxyServer: any;
   let docsServer: any;
 
   // Create a mock target API
   const targetApi = new Hono();
-  
+
   // Setup test endpoints
   targetApi.get('/users', (c) => {
     return c.json([
       { id: 1, name: 'John Doe' },
-      { id: 2, name: 'Jane Smith' }
+      { id: 2, name: 'Jane Smith' },
     ]);
   });
 
@@ -79,7 +79,7 @@ describe('Arbiter Integration Tests', () => {
     // Start the target API server
     targetServer = serve({
       fetch: targetApi.fetch,
-      port: targetPort
+      port: targetPort,
     });
 
     // Start Arbiter servers
@@ -87,14 +87,14 @@ describe('Arbiter Integration Tests', () => {
       target: `http://localhost:${targetPort}`,
       proxyPort,
       docsPort,
-      verbose: false
+      verbose: false,
     });
 
     proxyServer = servers.proxyServer;
     docsServer = servers.docsServer;
 
     // Wait a bit to ensure servers are ready
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
   });
 
   afterAll(() => {
@@ -106,15 +106,15 @@ describe('Arbiter Integration Tests', () => {
   it('should proxy basic GET request and record in HAR', async () => {
     const response = await fetch(`http://localhost:${proxyPort}/users`);
     expect(response.status).toBe(200);
-    
-    const users = await response.json() as User[];
+
+    const users = (await response.json()) as User[];
     expect(users).toHaveLength(2);
     expect(users[0].name).toBe('John Doe');
 
     // Check HAR recording
     const harResponse = await fetch(`http://localhost:${docsPort}/har`);
-    const har = await harResponse.json() as HAR;
-    
+    const har = (await harResponse.json()) as HAR;
+
     expect(har.log.entries).toHaveLength(1);
     expect(har.log.entries[0].request.method).toBe('GET');
     expect(har.log.entries[0].request.url).toBe(`http://localhost:${targetPort}/users`);
@@ -125,20 +125,20 @@ describe('Arbiter Integration Tests', () => {
     const response = await fetch(`http://localhost:${proxyPort}/users`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ name: 'Bob Wilson' })
+      body: JSON.stringify({ name: 'Bob Wilson' }),
     });
-    
+
     expect(response.status).toBe(201);
-    const newUser = await response.json() as User;
+    const newUser = (await response.json()) as User;
     expect(newUser.name).toBe('Bob Wilson');
 
     // Check HAR recording
     const harResponse = await fetch(`http://localhost:${docsPort}/har`);
-    const har = await harResponse.json() as HAR;
-    
-    const postEntry = har.log.entries.find(e => e.request.method === 'POST');
+    const har = (await harResponse.json()) as HAR;
+
+    const postEntry = har.log.entries.find((e) => e.request.method === 'POST');
     expect(postEntry).toBeDefined();
     expect(postEntry?.request.postData?.text).toBe(JSON.stringify({ name: 'Bob Wilson' }));
     expect(postEntry?.response.status).toBe(201);
@@ -151,12 +151,12 @@ describe('Arbiter Integration Tests', () => {
     await fetch(`http://localhost:${proxyPort}/users`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'Test User' })
+      body: JSON.stringify({ name: 'Test User' }),
     });
 
     // Get OpenAPI spec
     const specResponse = await fetch(`http://localhost:${docsPort}/openapi.json`);
-    const spec = await specResponse.json() as OpenAPIV3_1.Document;
+    const spec = (await specResponse.json()) as OpenAPIV3_1.Document;
 
     // Validate paths
     expect(spec.paths?.['/users']).toBeDefined();
@@ -176,40 +176,41 @@ describe('Arbiter Integration Tests', () => {
     await fetch(`http://localhost:${proxyPort}/users?limit=10&offset=0`);
 
     const harResponse = await fetch(`http://localhost:${docsPort}/har`);
-    const har = await harResponse.json() as HAR;
-    
-    const entry = har.log.entries.find(e => e.request.url.includes('?limit=10'));
+    const har = (await harResponse.json()) as HAR;
+
+    const entry = har.log.entries.find((e) => e.request.url.includes('?limit=10'));
     expect(entry).toBeDefined();
     expect(entry?.request.queryString).toEqual([
       { name: 'limit', value: '10' },
-      { name: 'offset', value: '0' }
+      { name: 'offset', value: '0' },
     ]);
 
     const specResponse = await fetch(`http://localhost:${docsPort}/openapi.json`);
-    const spec = await specResponse.json() as OpenAPIV3_1.Document;
-    
+    const spec = (await specResponse.json()) as OpenAPIV3_1.Document;
+
     const parameters = spec.paths?.['/users']?.get?.parameters as OpenAPIV3_1.ParameterObject[];
     expect(parameters).toBeDefined();
     expect(parameters).toContainEqual({
       name: 'limit',
       in: 'query',
-      schema: { type: 'string' }
+      schema: { type: 'string' },
     });
   });
 
   it('should handle security schemes', async () => {
     await fetch(`http://localhost:${proxyPort}/secure`, {
       headers: {
-        'x-api-key': 'test-key'
-      }
+        'x-api-key': 'test-key',
+      },
     });
 
     const specResponse = await fetch(`http://localhost:${docsPort}/openapi.json`);
-    const spec = await specResponse.json() as OpenAPIV3_1.Document;
+    const spec = (await specResponse.json()) as OpenAPIV3_1.Document;
 
     // Check security scheme definition
     expect(spec.components?.securitySchemes).toBeDefined();
-    const apiKeyAuth = spec.components?.securitySchemes?.apiKey_ as OpenAPIV3_1.ApiKeySecurityScheme;
+    const apiKeyAuth = spec.components?.securitySchemes
+      ?.apiKey_ as OpenAPIV3_1.ApiKeySecurityScheme;
     expect(apiKeyAuth).toBeDefined();
     expect(apiKeyAuth.type).toBe('apiKey');
     expect(apiKeyAuth.in).toBe('header');
@@ -219,7 +220,7 @@ describe('Arbiter Integration Tests', () => {
     const securityRequirements = spec.paths?.['/secure']?.get?.security;
     expect(securityRequirements).toBeDefined();
     expect(securityRequirements).toContainEqual({
-      apiKey_: []
+      apiKey_: [],
     });
   });
-}); 
+});
