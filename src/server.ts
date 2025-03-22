@@ -1,18 +1,128 @@
-import { serve } from '@hono/node-server';
-import { Hono } from 'hono';
-import { logger } from 'hono/logger';
-import { cors } from 'hono/cors';
-import { prettyJSON } from 'hono/pretty-json';
-import httpProxy from 'http-proxy';
-import { Context } from 'hono';
+import express from 'express';
+import { createProxyMiddleware } from 'http-proxy-middleware';
+import { createServer } from 'http';
+import cors from 'cors';
+import zlib from 'zlib';
 import { openApiStore } from './store/openApiStore.js';
-import { IncomingMessage, ServerResponse, createServer, Server } from 'node:http';
-import { Agent } from 'node:https';
 import chalk from 'chalk';
-import { harRecorder } from './middleware/harRecorder.js';
-import { apiDocGenerator } from './middleware/apiDocGenerator.js';
-import type { ServerConfig } from './types.js';
+import { IncomingMessage, ServerResponse } from 'http';
+import type { SecurityInfo } from './store/openApiStore.js';
+import bodyParser from 'body-parser';
 
+// Create a simple HAR store
+class HARStore {
+  private har = {
+    log: {
+      version: '1.2',
+      creator: {
+        name: 'Arbiter',
+        version: '1.0.0',
+      },
+      entries: [] as Array<{
+        startedDateTime: string;
+        time: number;
+        request: {
+          method: string;
+          url: string;
+          httpVersion: string;
+          headers: Array<{ name: string; value: string }>;
+          queryString: Array<{ name: string; value: string }>;
+          postData?: any;
+        };
+        response: {
+          status: number;
+          statusText: string;
+          httpVersion: string;
+          headers: Array<{ name: string; value: string }>;
+          content: {
+            size: number;
+            mimeType: string;
+            text: string;
+          };
+        };
+        _rawResponseBuffer?: Buffer; // Internal property to store raw data for deferred processing
+      }>,
+    },
+  };
+
+  public getHAR() {
+    // Process any deferred entries before returning
+    this.processRawBuffers();
+    return this.har;
+  }
+
+  public addEntry(entry: typeof this.har.log.entries[0]) {
+    this.har.log.entries.push(entry);
+  }
+
+  public clear() {
+    this.har.log.entries = [];
+  }
+  
+  // Process any entries with raw response buffers
+  private processRawBuffers() {
+    for (const entry of this.har.log.entries) {
+      if (entry._rawResponseBuffer && entry.response.content.text === '[Response content stored]') {
+        try {
+          const buffer = entry._rawResponseBuffer;
+          const contentType = entry.response.content.mimeType;
+          
+          // Process buffer based on content-encoding header
+          const contentEncoding = entry.response.headers.find(h => 
+            h.name.toLowerCase() === 'content-encoding')?.value;
+          
+          if (contentEncoding) {
+            if (contentEncoding.toLowerCase() === 'gzip') {
+              try {
+                const decompressed = zlib.gunzipSync(buffer);
+                const text = decompressed.toString('utf-8');
+                
+                if (contentType.includes('json')) {
+                  try {
+                    entry.response.content.text = text;
+                  } catch (e) {
+                    entry.response.content.text = text;
+                  }
+                } else {
+                  entry.response.content.text = text;
+                }
+              } catch (e) {
+                entry.response.content.text = '[Compressed content]';
+              }
+            } else {
+              entry.response.content.text = `[${contentEncoding} compressed content]`;
+            }
+          } else {
+            // For non-compressed responses
+            const text = buffer.toString('utf-8');
+            
+            if (contentType.includes('json')) {
+              try {
+                const json = JSON.parse(text);
+                entry.response.content.text = JSON.stringify(json);
+              } catch (e) {
+                entry.response.content.text = text;
+              }
+            } else {
+              entry.response.content.text = text;
+            }
+          }
+        } catch (e) {
+          entry.response.content.text = '[Error processing response content]';
+        }
+        
+        // Remove the raw buffer to free memory
+        delete entry._rawResponseBuffer;
+      }
+    }
+  }
+}
+
+export const harStore = new HARStore();
+
+/**
+ * Server configuration options
+ */
 export interface ServerOptions {
   target: string;
   proxyPort: number;
@@ -20,178 +130,359 @@ export interface ServerOptions {
   verbose?: boolean;
 }
 
-export async function startServers(
-  options: ServerOptions
-): Promise<{ proxyServer: Server; docsServer: Server }> {
+/**
+ * Sets up and starts the proxy and docs servers
+ */
+export async function startServers({
+  target,
+  proxyPort,
+  docsPort,
+  verbose = false,
+}: ServerOptions): Promise<{
+  proxyServer: ReturnType<typeof createServer>;
+  docsServer: ReturnType<typeof createServer>;
+}> {
   // Set the target URL in the OpenAPI store
-  openApiStore.setTargetUrl(options.target);
+  openApiStore.setTargetUrl(target);
 
-  // Create two separate Hono apps
-  const proxyApp = new Hono();
-  const docsApp = new Hono();
+  // Create proxy app with Express
+  const proxyApp = express();
+  proxyApp.use(cors());
 
-  // Create proxy server
-  const proxy = httpProxy.createProxyServer({
+  // Add body parser for JSON and URL-encoded forms
+  proxyApp.use(bodyParser.json({ limit: '10mb' }));
+  proxyApp.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
+  proxyApp.use(bodyParser.text({ limit: '10mb' }));
+  proxyApp.use(bodyParser.raw({ type: 'application/octet-stream', limit: '10mb' }));
+
+  // Create a map to store request bodies
+  const requestBodies = new Map<string, any>();
+
+  if (verbose) {
+    // Add request logging middleware
+    proxyApp.use((req, res, next) => {
+      console.log(`Proxying: ${req.method} ${req.url}`);
+      next();
+    });
+  }
+
+  // Create the proxy middleware with explicit type parameters for Express
+  const proxyMiddleware = createProxyMiddleware<express.Request, express.Response>({
+    target,
     changeOrigin: true,
     secure: false,
+    ws: true,
+    pathRewrite: (path: string) => path,
     selfHandleResponse: true,
-    target: options.target,
-    headers: {
-      Host: new URL(options.target).host,
-    },
-    agent: new Agent({
-      rejectUnauthorized: false,
-    }),
+    plugins: [
+      (proxyServer, options) => {
+        // Handle proxy errors
+        proxyServer.on('error', (err, req, res) => {
+          console.error('Proxy error:', err);
+          if (res instanceof ServerResponse && !res.headersSent) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Proxy error', message: err.message }));
+          }
+        });
+        
+        // Handle proxy response
+        proxyServer.on('proxyReq', (proxyReq, req, res) => {
+          // Store the request body for later use
+          if (['POST', 'PUT', 'PATCH'].includes(req.method || '') && req.body) {
+            const requestId = `${req.method}-${req.url}-${Date.now()}`;
+            requestBodies.set(requestId, req.body);
+            // Set a custom header to identify the request
+            proxyReq.setHeader('x-request-id', requestId);
+            
+            // If the body has been consumed by the body-parser, we need to restream it to the proxy
+            if (req.body) {
+              const bodyData = JSON.stringify(req.body);
+              if (bodyData && bodyData !== '{}') {
+                // Update content-length
+                proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+                // Write the body to the proxied request
+                proxyReq.write(bodyData);
+                proxyReq.end();
+              }
+            }
+          }
+        });
+
+        proxyServer.on('proxyRes', (proxyRes, req, res) => {
+          const startTime = Date.now();
+          const chunks: Buffer[] = [];
+          
+          // Collect response chunks
+          proxyRes.on('data', (chunk: Buffer) => {
+            chunks.push(Buffer.from(chunk));
+          });
+          
+          // When the response is complete
+          proxyRes.on('end', () => {
+            const endTime = Date.now();
+            const responseTime = endTime - startTime;
+            
+            // Combine response chunks
+            const buffer = Buffer.concat(chunks);
+            
+            // Set status code
+            res.statusCode = proxyRes.statusCode || 200;
+            res.statusMessage = proxyRes.statusMessage || '';
+            
+            // Copy ALL headers exactly as they are
+            Object.keys(proxyRes.headers).forEach(key => {
+              const headerValue = proxyRes.headers[key];
+              if (headerValue) {
+                res.setHeader(key, headerValue);
+              }
+            });
+            
+            // Send the buffer as the response body without modifying it
+            res.end(buffer);
+            
+            // Process HAR and OpenAPI data in the background (next event loop tick)
+            // to avoid delaying the response to the client
+            setImmediate(() => {
+              // Get request data
+              const method = req.method || 'GET';
+              const originalUrl = new URL(`http://${req.headers.host}${req.url}`);
+              const path = originalUrl.pathname;
+              
+              // Skip web asset requests - don't process JS, CSS, HTML, etc. but keep images and icons
+              if (
+                path.endsWith('.js') || 
+                path.endsWith('.css') || 
+                path.endsWith('.html') || 
+                path.endsWith('.htm') ||
+                path.endsWith('.woff') ||
+                path.endsWith('.woff2') ||
+                path.endsWith('.ttf') ||
+                path.endsWith('.eot') ||
+                path.endsWith('.map')
+              ) {
+                if (verbose) {
+                  console.log(`Skipping web asset: ${method} ${path}`);
+                }
+                return;
+              }
+              
+              // Skip if contentType is related to web assets, but keep images
+              const contentType = proxyRes.headers['content-type'] || '';
+              if (
+                contentType.includes('javascript') ||
+                contentType.includes('css') ||
+                contentType.includes('html') ||
+                contentType.includes('font/')
+              ) {
+                if (verbose) {
+                  console.log(`Skipping content type: ${method} ${path} (${contentType})`);
+                }
+                return;
+              }
+              
+              // Extract query parameters
+              const queryParams: Record<string, string> = {};
+              const urlSearchParams = new URLSearchParams(originalUrl.search);
+              urlSearchParams.forEach((value, key) => {
+                queryParams[key] = value;
+              });
+              
+              // Extract request headers
+              const requestHeaders: Record<string, string> = {};
+              for (const [key, value] of Object.entries(req.headers)) {
+                if (typeof value === 'string') {
+                  requestHeaders[key] = value;
+                } else if (Array.isArray(value) && value.length > 0) {
+                  requestHeaders[key] = value[0];
+                }
+              }
+              
+              // Extract response headers
+              const responseHeaders: Record<string, string> = {};
+              for (const [key, value] of Object.entries(proxyRes.headers)) {
+                if (typeof value === 'string') {
+                  responseHeaders[key] = value;
+                } else if (Array.isArray(value) && value.length > 0) {
+                  responseHeaders[key] = value[0];
+                }
+              }
+              
+              // Get request body from our map if available
+              let requestBody = undefined;
+              if (['POST', 'PUT', 'PATCH'].includes(method)) {
+                const requestId = req.headers['x-request-id'] as string;
+                if (requestId && requestBodies.has(requestId)) {
+                  requestBody = requestBodies.get(requestId);
+                  // Clean up after use
+                  requestBodies.delete(requestId);
+                } else {
+                  // Fallback to req.body
+                  requestBody = req.body;
+                }
+              }
+              
+              // Store minimal data for HAR entry - delay expensive processing
+              const requestUrl = `${target}${path}${originalUrl.search}`;
+              
+              // Create lighter HAR entry with minimal processing
+              const harEntry = {
+                startedDateTime: new Date(startTime).toISOString(),
+                time: responseTime,
+                request: {
+                  method: method,
+                  url: requestUrl,
+                  httpVersion: 'HTTP/1.1',
+                  headers: Object.entries(requestHeaders)
+                    .filter(([key]) => key.toLowerCase() !== 'content-length')
+                    .map(([name, value]) => ({ name, value })),
+                  queryString: Object.entries(queryParams).map(([name, value]) => ({ name, value })),
+                  postData: requestBody ? {
+                    mimeType: requestHeaders['content-type'] || 'application/json',
+                    text: typeof requestBody === 'string' ? requestBody : JSON.stringify(requestBody)
+                  } : undefined,
+                },
+                response: {
+                  status: proxyRes.statusCode || 200,
+                  statusText: proxyRes.statusCode === 200 ? 'OK' : 'Error',
+                  httpVersion: 'HTTP/1.1',
+                  headers: Object.entries(responseHeaders).map(([name, value]) => ({ name, value })),
+                  content: {
+                    size: buffer.length,
+                    mimeType: responseHeaders['content-type'] || 'application/octet-stream',
+                    // Store raw buffer and defer text conversion/parsing until needed
+                    text: '[Response content stored]'
+                  },
+                },
+                _rawResponseBuffer: buffer, // Store for later processing if needed
+              };
+              
+              // Add the HAR entry to the store
+              harStore.addEntry(harEntry);
+              
+              // Extract security schemes from headers - minimal work
+              const securitySchemes: SecurityInfo[] = [];
+              if (requestHeaders['x-api-key']) {
+                securitySchemes.push({
+                  type: 'apiKey' as const,
+                  name: 'x-api-key',
+                  in: 'header' as const,
+                });
+              }
+              if (requestHeaders['authorization']?.startsWith('Bearer ')) {
+                securitySchemes.push({
+                  type: 'http' as const,
+                  scheme: 'bearer' as const,
+                });
+              }
+              if (requestHeaders['authorization']?.startsWith('Basic ')) {
+                securitySchemes.push({
+                  type: 'http' as const,
+                  scheme: 'basic' as const,
+                });
+              }
+              
+              // Store minimal data in OpenAPI store - just record the endpoint and method
+              // This defers schema generation until actually requested
+              openApiStore.recordEndpoint(
+                path,
+                method.toLowerCase(),
+                {
+                  query: queryParams,
+                  headers: requestHeaders,
+                  contentType: requestHeaders['content-type'] || 'application/json',
+                  body: requestBody, // Now we have the body properly captured
+                  security: securitySchemes,
+                },
+                {
+                  status: proxyRes.statusCode || 500,
+                  headers: responseHeaders,
+                  contentType: responseHeaders['content-type'] || 'application/json',
+                  // Store raw data instead of parsed body, but still provide a body property to satisfy the type
+                  body: '[Raw data stored]',
+                  rawData: buffer,
+                }
+              );
+              
+              if (verbose) {
+                console.log(`${method} ${path} -> ${proxyRes.statusCode}`);
+              }
+            }); // End of setImmediate
+          });
+        });
+      }
+    ]
   });
 
-  // Set up error handlers
-  proxy.on('error', (err) => {
-    console.error('Proxy error:', err);
+  proxyApp.use('/', proxyMiddleware);
+  
+  // Create docs app with Express
+  const docsApp = express();
+  docsApp.use(cors());
+  
+  // Create documentation endpoints
+  docsApp.get('/har', (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(JSON.stringify(harStore.getHAR()));
   });
-
-  proxy.on('proxyReq', (proxyReq, req, res) => {
-    // Ensure we're using the correct protocol
-    proxyReq.protocol = new URL(options.target).protocol;
+  
+  docsApp.get('/openapi.json', (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(JSON.stringify(openApiStore.getOpenAPISpec()));
   });
-
-  // Middleware for both apps
-  if (options.verbose) {
-    proxyApp.use('*', logger());
-    docsApp.use('*', logger());
-  }
-  proxyApp.use('*', cors());
-  proxyApp.use('*', prettyJSON());
-  docsApp.use('*', cors());
-  docsApp.use('*', prettyJSON());
-
-  // Configure proxy server middleware
-  proxyApp.use('*', async (c, next) => {
-    await harRecorder(openApiStore)(c, next);
+  
+  docsApp.get('/openapi.yaml', (req, res) => {
+    res.setHeader('Content-Type', 'text/plain');
+    res.send(openApiStore.getOpenAPISpecAsYAML());
   });
-  proxyApp.use('*', async (c, next) => {
-    await apiDocGenerator(openApiStore)(c, next);
-  });
-
-  // Documentation endpoints
-  docsApp.get('/docs', async (c: Context) => {
-    const spec = openApiStore.getOpenAPISpec();
-    return c.html(`
-      <!DOCTYPE html>
+  
+  docsApp.get('/docs', (req, res) => {
+    res.setHeader('Content-Type', 'text/html');
+    res.send(`
+      <!doctype html>
       <html>
         <head>
-          <title>API Documentation</title>
+          <title>Scalar API Reference</title>
           <meta charset="utf-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1" />
         </head>
         <body>
-          <script
-            id="api-reference"
-            data-url="/openapi.json"
-            data-proxy-url="https://proxy.scalar.com"></script>
-
-          <script>
-            var configuration = {
-              theme: 'light',
-              title: 'API Documentation'
-            }
-
-            document.getElementById('api-reference').dataset.configuration =
-              JSON.stringify(configuration)
-          </script>
-
+          <script id="api-reference" data-url="/openapi.yaml"></script>
           <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
         </body>
       </html>
     `);
   });
-  docsApp.get('/openapi.json', (c: Context) => {
-    return c.json(openApiStore.getOpenAPISpec());
+  
+  // Home page with links
+  docsApp.get('/', (req, res) => {
+    res.setHeader('Content-Type', 'text/html');
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>API Documentation</title>
+          <style>
+            body { font-family: system-ui, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+            h1 { color: #333; }
+            ul { list-style-type: none; padding: 0; }
+            li { margin: 10px 0; }
+            a { color: #0366d6; text-decoration: none; }
+            a:hover { text-decoration: underline; }
+          </style>
+        </head>
+        <body>
+          <h1>API Documentation</h1>
+          <ul>
+            <li><a href="/docs">Swagger UI</a></li>
+            <li><a href="/openapi.json">OpenAPI JSON</a></li>
+            <li><a href="/openapi.yaml">OpenAPI YAML</a></li>
+            <li><a href="/har">HAR Export</a></li>
+          </ul>
+        </body>
+      </html>
+    `);
   });
-  docsApp.get('/openapi.yaml', (c: Context) => {
-    return c.text(openApiStore.getOpenAPISpecAsYAML());
-  });
-  docsApp.get('/har', (c: Context) => {
-    return c.json(openApiStore.generateHAR());
-  });
-
-  // Proxy all requests
-  proxyApp.all('*', async (c: Context) => {
-    let requestBody: any;
-    let responseBody: any;
-
-    // Get request body if present
-    if (c.req.method !== 'GET' && c.req.method !== 'HEAD') {
-      try {
-        requestBody = await c.req.json();
-      } catch (e) {
-        // Body might not be JSON
-        requestBody = await c.req.text();
-      }
-    }
-
-    try {
-      // Create a new request object with the target URL
-      const targetUrl = new URL(c.req.path, options.target);
-      // Copy query parameters
-      const originalUrl = new URL(c.req.url);
-      originalUrl.searchParams.forEach((value, key) => {
-        targetUrl.searchParams.append(key, value);
-      });
-
-      const proxyReq = new Request(targetUrl.toString(), {
-        method: c.req.method,
-        headers: new Headers({
-          'content-type': c.req.header('content-type') || 'application/json',
-          accept: c.req.header('accept') || 'application/json',
-          ...Object.fromEntries(
-            Object.entries(c.req.header()).filter(
-              ([key]) => !['content-type', 'accept'].includes(key.toLowerCase())
-            )
-          ),
-        }),
-        body: c.req.method !== 'GET' && c.req.method !== 'HEAD' ? requestBody : undefined,
-      });
-
-      // Forward the request to the target server
-      const proxyRes = await fetch(proxyReq);
-
-      // Get response body
-      const contentType = proxyRes.headers.get('content-type') || '';
-      if (contentType.includes('application/json')) {
-        responseBody = await proxyRes.json();
-      } else {
-        responseBody = await proxyRes.text();
-      }
-
-      // Record the API call in OpenAPI format
-      openApiStore.recordEndpoint(
-        c.req.path,
-        c.req.method.toLowerCase(),
-        {
-          query: Object.fromEntries(new URL(c.req.url).searchParams),
-          body: requestBody,
-          contentType: c.req.header('content-type') || 'application/json',
-          headers: Object.fromEntries(Object.entries(c.req.header())),
-        },
-        {
-          status: proxyRes.status,
-          body: responseBody,
-          contentType: proxyRes.headers.get('content-type') || 'application/json',
-          headers: Object.fromEntries(proxyRes.headers.entries()),
-        }
-      );
-
-      // Create a new response with the correct content type and body
-      return new Response(JSON.stringify(responseBody), {
-        status: proxyRes.status,
-        headers: Object.fromEntries(proxyRes.headers.entries()),
-      });
-    } catch (error: any) {
-      console.error('Proxy request failed:', error);
-      return c.json({ error: 'Proxy error', details: error.message }, 500);
-    }
-  });
-
+  
   // Function to check if a port is available
   async function isPortAvailable(port: number): Promise<boolean> {
     return new Promise((resolve) => {
@@ -206,7 +497,7 @@ export async function startServers(
         .listen(port);
     });
   }
-
+  
   // Function to find an available port
   async function findAvailablePort(startPort: number): Promise<number> {
     let port = startPort;
@@ -215,205 +506,64 @@ export async function startServers(
     }
     return port;
   }
-
+  
   // Start servers
-  const availableProxyPort = await findAvailablePort(options.proxyPort);
-  const availableDocsPort = await findAvailablePort(options.docsPort);
-
-  if (availableProxyPort !== options.proxyPort) {
+  const availableProxyPort = await findAvailablePort(proxyPort);
+  const availableDocsPort = await findAvailablePort(docsPort);
+  
+  if (availableProxyPort !== proxyPort) {
     console.log(
-      chalk.yellow(`Port ${options.proxyPort} is in use, using port ${availableProxyPort} instead`)
+      chalk.yellow(`Port ${proxyPort} is in use, using port ${availableProxyPort} instead`)
     );
   }
-  if (availableDocsPort !== options.docsPort) {
+  if (availableDocsPort !== docsPort) {
     console.log(
-      chalk.yellow(`Port ${options.docsPort} is in use, using port ${availableDocsPort} instead`)
+      chalk.yellow(`Port ${docsPort} is in use, using port ${availableDocsPort} instead`)
     );
   }
-
-  console.log(chalk.blue(`Starting proxy server on port ${availableProxyPort}...`));
-  console.log(chalk.gray(`Proxying requests to: ${options.target}`));
-  console.log(chalk.blue(`Starting documentation server on port ${availableDocsPort}...`));
-
-  const proxyServer = createServer(async (req, res) => {
+  
+  // Create HTTP servers
+  const proxyServer = createServer(proxyApp);
+  const docsServer = createServer(docsApp);
+  
+  // Start servers
+  return new Promise((resolve, reject) => {
     try {
-      const url = new URL(req.url || '/', `http://localhost:${availableProxyPort}`);
-
-      // Read the request body if present
-      let body: string | undefined;
-      if (req.method !== 'GET' && req.method !== 'HEAD') {
-        body = await new Promise((resolve, reject) => {
-          const chunks: Buffer[] = [];
-          req.on('data', (chunk) => chunks.push(chunk));
-          req.on('end', () => resolve(Buffer.concat(chunks).toString()));
-          req.on('error', reject);
+      proxyServer.listen(availableProxyPort, () => {
+        docsServer.listen(availableDocsPort, () => {
+          console.log('\n' + chalk.green('Arbiter is running! 🚀'));
+          console.log('\n' + chalk.bold('Proxy Server:'));
+          console.log(chalk.cyan(`  URL: http://localhost:${availableProxyPort}`));
+          console.log(chalk.gray(`  Target: ${target}`));
+          console.log('\n' + chalk.bold('Documentation:'));
+          console.log(chalk.cyan(`  API Reference: http://localhost:${availableDocsPort}/docs`));
+          console.log('\n' + chalk.bold('Exports:'));
+          console.log(chalk.cyan(`  HAR Export: http://localhost:${availableDocsPort}/har`));
+          console.log(chalk.cyan(`  OpenAPI JSON: http://localhost:${availableDocsPort}/openapi.json`));
+          console.log(chalk.cyan(`  OpenAPI YAML: http://localhost:${availableDocsPort}/openapi.yaml`));
+          console.log('\n' + chalk.yellow('Press Ctrl+C to stop'));
+          
+          resolve({ proxyServer, docsServer });
         });
-      }
-
-      // Create headers without content-length (will be added automatically)
-      const headers = { ...req.headers } as Record<string, string>;
-      delete headers['content-length'];
-
-      const request = new Request(url.toString(), {
-        method: req.method || 'GET',
-        headers,
-        body: body,
-        duplex: 'half',
       });
-
-      // Forward the request to the target server
-      const targetUrl = new URL(req.url || '/', options.target);
-      const response = await fetch(targetUrl.toString(), {
-        method: request.method,
-        headers: request.headers,
-        body: body,
-        duplex: 'half',
-      });
-
-      // Get response body
-      let responseBody: any;
-      const contentType = response.headers.get('content-type') || '';
-      const responseText = await response.text();
-      if (contentType.includes('application/json')) {
-        try {
-          responseBody = JSON.parse(responseText);
-        } catch (e) {
-          responseBody = responseText;
-        }
-      } else {
-        responseBody = responseText;
-      }
-
-      // Record the API call in OpenAPI format
-      openApiStore.recordEndpoint(
-        decodeURIComponent(url.pathname),
-        (req.method || 'GET').toLowerCase(),
-        {
-          query: Object.fromEntries(url.searchParams),
-          body: body ? JSON.parse(body) : undefined,
-          contentType: headers['content-type'] || 'application/json',
-          headers,
-          security: headers['x-api-key']
-            ? [
-                {
-                  type: 'apiKey',
-                  name: 'x-api-key',
-                  in: 'header',
-                },
-              ]
-            : undefined,
-        },
-        {
-          status: response.status,
-          body: responseBody,
-          contentType: contentType || 'application/json',
-          headers: Object.fromEntries(response.headers.entries()),
-        }
-      );
-
-      res.statusCode = response.status;
-      res.statusMessage = response.statusText;
-
-      // Copy all headers from the response
-      for (const [key, value] of response.headers.entries()) {
-        res.setHeader(key, value);
-      }
-
-      // Send the response body
-      res.end(responseText);
-    } catch (error: any) {
-      console.error('Proxy request failed:', error);
-      res.statusCode = 500;
-      res.end(JSON.stringify({ error: 'Proxy error', details: error.message }));
+    } catch (error) {
+      reject(error);
     }
   });
-
-  const docsServer = createServer(async (req, res) => {
-    try {
-      const url = new URL(req.url || '/', `http://localhost:${availableDocsPort}`);
-      const request = new Request(url.toString(), {
-        method: req.method || 'GET',
-        headers: req.headers as Record<string, string>,
-        body: req.method !== 'GET' && req.method !== 'HEAD' ? req : undefined,
-      });
-
-      const response = await docsApp.fetch(request);
-      res.statusCode = response.status;
-      res.statusMessage = response.statusText;
-
-      for (const [key, value] of response.headers.entries()) {
-        res.setHeader(key, value);
-      }
-
-      if (response.body) {
-        const reader = response.body.getReader();
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          res.write(value);
-        }
-      }
-      res.end();
-    } catch (error: any) {
-      console.error('Documentation request failed:', error);
-      res.statusCode = 500;
-      res.end(JSON.stringify({ error: 'Documentation error', details: error.message }));
-    }
-  });
-
-  await new Promise<void>((resolve, reject) => {
-    proxyServer.once('error', reject);
-    proxyServer.listen(availableProxyPort, '0.0.0.0', () => {
-      console.log(chalk.green(`✓ Proxy server running on port ${availableProxyPort}`));
-      resolve();
-    });
-  });
-
-  await new Promise<void>((resolve, reject) => {
-    docsServer.once('error', reject);
-    docsServer.listen(availableDocsPort, '0.0.0.0', () => {
-      console.log(chalk.green(`✓ Documentation server running on port ${availableDocsPort}`));
-      resolve();
-    });
-  });
-
-  // Print startup message
-  console.log('\n' + chalk.green('Arbiter is running! 🚀'));
-  console.log('\n' + chalk.bold('Proxy Server:'));
-  console.log(chalk.cyan(`  URL: http://localhost:${availableProxyPort}`));
-  console.log(chalk.gray(`  Target: ${options.target}`));
-  console.log('\n' + chalk.bold('Documentation:'));
-  console.log(chalk.cyan(`  API Reference: http://localhost:${availableDocsPort}/docs`));
-  console.log('\n' + chalk.bold('Exports:'));
-  console.log(chalk.cyan(`  HAR Export: http://localhost:${availableDocsPort}/har`));
-  console.log(chalk.cyan(`  OpenAPI JSON: http://localhost:${availableDocsPort}/openapi.json`));
-  console.log(chalk.cyan(`  OpenAPI YAML: http://localhost:${availableDocsPort}/openapi.yaml`));
-  console.log('\n' + chalk.yellow('Press Ctrl+C to stop'));
-
+  
   // Handle graceful shutdown
-  const shutdown = async (signal: string): Promise<void> => {
+  const shutdown = (signal: string): void => {
     console.info(`Received ${signal}, shutting down...`);
-    await Promise.all([
-      proxyServer.close(),
-      docsServer.close(),
-    ]);
+    proxyServer.close();
+    docsServer.close();
     process.exit(0);
   };
-
+  
   process.on('SIGTERM', () => {
-    void shutdown('SIGTERM');
+    shutdown('SIGTERM');
   });
-
+  
   process.on('SIGINT', () => {
-    void shutdown('SIGINT');
+    shutdown('SIGINT');
   });
-
-  return { proxyServer, docsServer };
-}
-
-function createServerConfig(app: Hono, port: number): ServerConfig {
-  return {
-    fetch: app.fetch,
-    port,
-  };
 }

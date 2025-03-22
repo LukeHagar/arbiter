@@ -1,161 +1,148 @@
 # Arbiter
 
-A powerful API proxy with automatic OpenAPI documentation generation and HAR export capabilities.
+Arbiter is a powerful API proxy and documentation generator that automatically creates OpenAPI specifications and HAR (HTTP Archive) recordings for any API you access through it.
 
 ## Features
 
-- Proxy API requests to any target server
-- Automatic OpenAPI documentation generation
-- HAR file export for request/response analysis
-- Beautiful API documentation powered by [Scalar](https://github.com/scalar/scalar)
-  - Interactive API playground
-  - Dark/Light theme support
-  - Request/Response examples
-  - Authentication handling
-  - OpenAPI 3.1 support
-- CLI interface for easy configuration
-- Support for security scheme detection
-- CORS enabled by default
-- Pretty JSON responses
+- **API Proxy** - Transparently proxies all API requests to the target API 
+- **Automatic OpenAPI Generation** - Builds a complete OpenAPI 3.1 specification based on observed traffic
+- **HAR Recording** - Records all requests and responses in HAR format for debugging and analysis
+- **Interactive API Documentation** - Provides beautiful, interactive API documentation using [Scalar](https://github.com/scalar/scalar)
+- **Security Scheme Detection** - Automatically detects and documents API key, Bearer token, and Basic authentication
+- **Schema Inference** - Analyzes JSON responses to generate accurate schema definitions
+- **Path Parameter Detection** - Intelligently identifies path parameters from multiple requests
+- **Support for Complex Content Types** - Handles JSON, XML, form data, and binary content
 
-## Installation
+## Getting Started
 
-Clone the repository and install dependencies:
+### Installation
 
 ```bash
-git clone https://github.com/LukeHagar/arbiter.git
-cd arbiter
-npm install
+npm install -g arbiter
 ```
 
-## Usage
+### Basic Usage
 
-### Development Setup
-
-1. Build the project:
-```bash
-npm run build
-```
-
-2. Start the development server:
-```bash
-npm run dev -- --target http://api.example.com
-```
-
-Once started, you can access:
-- The API documentation at `http://localhost:9000/docs`
-- The proxy server at `http://localhost:8080`
-
-The documentation interface is powered by Scalar, providing:
-- A modern, responsive UI for API exploration
-- Interactive request builder and testing
-- Authentication management
-- Code snippets in multiple languages
-- Dark/Light theme switching
-- OpenAPI 3.1 specification support
-
-### CLI Options
+Start Arbiter by pointing it to your target API:
 
 ```bash
-# Basic usage (default ports: proxy=8080, docs=9000)
-npm run dev -- --target http://api.example.com
-
-# Specify custom ports
-npm run dev -- --port 3000 --docs-port 4000 --target http://api.example.com
-
-# Run with verbose logging
-npm run dev -- --verbose --target http://api.example.com
-
-# Run only the documentation server
-npm run dev -- --docs-only --target http://api.example.com
-
-# Run only the proxy server
-npm run dev -- --proxy-only --target http://api.example.com
+arbiter --target https://api.example.com --proxy-port 3000 --docs-port 3001
 ```
 
-### Required Options
-- `-t, --target <url>`: Target API URL to proxy to (required)
+Then send requests through the proxy:
 
-### Optional Options
-- `-p, --port <number>`: Port for the proxy server (default: 8080)
-- `-d, --docs-port <number>`: Port for the documentation server (default: 9000)
-- `--docs-only`: Run only the documentation server
-- `--proxy-only`: Run only the proxy server
-- `-v, --verbose`: Enable verbose logging
+```bash
+curl http://localhost:3000/users
+```
 
-## Architecture
+And view the automatically generated documentation:
 
-Arbiter runs two separate servers:
+```bash
+open http://localhost:3001/docs
+```
 
-1. **Proxy Server** (default port 8080)
-   - Handles all API requests
-   - Forwards requests to the target API
-   - Records request/response data
-   - Detects and records security schemes
+## Usage Options
 
-2. **Documentation Server** (default port 9000)
-   - Serves the Scalar API documentation interface
-   - Provides interactive API playground
-   - Supports OpenAPI 3.1 specification
-   - Handles HAR file exports
-   - Separated from proxy for better performance
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--target` | Target API URL | (required) |
+| `--proxy-port` | Port for the proxy server | 3000 |
+| `--docs-port` | Port for the documentation server | 3001 |
+| `--verbose` | Enable verbose logging | false |
 
-## API Endpoints
+## API Documentation
+
+After using the API through the proxy, you can access:
+
+- Interactive API docs: `http://localhost:3001/docs`
+- OpenAPI JSON: `http://localhost:3001/openapi.json`
+- OpenAPI YAML: `http://localhost:3001/openapi.yaml`
+- HAR Export: `http://localhost:3001/har`
+
+## How It Works
 
 ### Proxy Server
-- All requests are proxied to the target API
-- No path prefix required
-- Example: `http://localhost:8080/api/v1/users`
 
-### Documentation Server
-- `/docs` - Scalar API documentation interface
-  - Interactive request builder
-  - Authentication management
-  - Code snippets in multiple languages
-  - Dark/Light theme support
-- `/openapi.json` - OpenAPI specification in JSON format
-- `/openapi.yaml` - OpenAPI specification in YAML format
-- `/har` - HAR file export
+Arbiter creates a proxy server that forwards all requests to your target API, preserving headers, method, body, and other request details. Responses are returned unmodified to the client, while Arbiter records the exchange in the background.
+
+### OpenAPI Generation
+
+As requests flow through the proxy, Arbiter:
+
+1. Records endpoints, methods, and path parameters
+2. Analyzes request bodies and generates request schemas
+3. Processes response bodies and generates response schemas
+4. Detects query parameters and headers
+5. Identifies security schemes based on authentication headers
+6. Combines multiple observations to create a comprehensive specification
+
+### Schema Generation
+
+Arbiter uses sophisticated algorithms to generate accurate JSON schemas:
+
+- Object property types are inferred from values
+- Array item schemas are derived from sample items
+- Nested objects and arrays are properly represented
+- Path parameters are identified from URL patterns
+- Query parameters are extracted and documented
+- Security requirements are automatically detected
+
+### HAR Recording
+
+All requests and responses are recorded in HAR (HTTP Archive) format, providing:
+
+- Complete request details (method, URL, headers, body)
+- Complete response details (status, headers, body)
+- Timing information
+- Content size and type
+
+## Advanced Features
+
+### Structure Analysis
+
+Arbiter can analyze the structure of JSON-like text that isn't valid JSON:
+
+- Detects array-like structures (`[{...}, {...}]`)
+- Identifies object-like structures (`{"key": "value"}`)
+- Extracts field names from malformed JSON
+- Provides fallback schemas for unstructured content
+
+### Content Processing
+
+Arbiter handles various content types:
+
+- **JSON** - Parsed and converted to schemas with proper types
+- **XML** - Recognized and documented with appropriate schema format
+- **Form Data** - Processed and documented as form parameters
+- **Binary Data** - Handled with appropriate binary format schemas
+- **Compressed Content** - Automatically decompressed (gzip support)
+
+## Middleware Usage
+
+Arbiter can also be used as middleware in your own application:
+
+```typescript
+import express from 'express';
+import { harRecorder } from 'arbiter/middleware';
+import { openApiStore } from 'arbiter/store';
+
+const app = express();
+
+// Add Arbiter middleware
+app.use(harRecorder(openApiStore));
+
+// Your routes
+app.get('/users', (req, res) => {
+  res.json([{ id: 1, name: 'User' }]);
+});
+
+app.listen(3000);
+```
 
 ## Contributing
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## Testing
-
-The project includes both unit tests and integration tests. Tests are written using Vitest.
-
-### Running Tests Locally
-
-```bash
-# Run all tests
-npm test
-
-# Run unit tests only
-npm run test:unit
-
-# Run integration tests only
-npm run test:integration
-
-# Run tests with coverage
-npm run test:coverage
-```
-
-### Continuous Integration
-
-The project uses GitHub Actions for continuous integration. The CI pipeline runs on every push to the main branch and on pull requests. It includes:
-
-- Running unit tests
-- Running integration tests
-- Linting checks
-- Testing against multiple Node.js versions (18.x and 20.x)
-
-You can view the CI status in the GitHub Actions tab of the repository.
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-This project is licensed under the ISC License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the LICENSE file for details.

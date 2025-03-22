@@ -9,10 +9,10 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/cli.js",
+    "start": "node dist/src/cli.js",
     "dev": "ts-node-dev --respawn --transpile-only src/cli.ts",
     "cli": "ts-node-dev --respawn --transpile-only src/cli.ts",
-    "test": "vitest",
+    "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:unit": "vitest src/**/__tests__/*.test.ts",
     "test:integration": "vitest integration/__tests__/*.test.ts",

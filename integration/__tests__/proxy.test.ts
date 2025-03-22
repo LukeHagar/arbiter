@@ -38,9 +38,10 @@ interface User {
 }
 
 describe('Arbiter Integration Tests', () => {
-  const targetPort = 3001;
-  const proxyPort = 3002;
-  const docsPort = 3003;
+  // Use different ports to avoid conflicts with other tests
+  const targetPort = 4001;
+  const proxyPort = 4002;
+  const docsPort = 4003;
 
   let targetServer: any;
   let proxyServer: any;
@@ -59,7 +60,8 @@ describe('Arbiter Integration Tests', () => {
 
   targetApi.post('/users', async (c) => {
     const body = await c.req.json();
-    return c.json({ id: 3, ...body }, 201);
+    c.status(201);
+    return c.json({ id: 3, ...body });
   });
 
   targetApi.get('/users/:id', (c) => {
@@ -70,9 +72,21 @@ describe('Arbiter Integration Tests', () => {
   targetApi.get('/secure', (c) => {
     const apiKey = c.req.header('x-api-key');
     if (apiKey !== 'test-key') {
-      return c.json({ error: 'Unauthorized' }, 401);
+      c.status(401);
+      return c.json({ error: 'Unauthorized' });
     }
     return c.json({ message: 'Secret data' });
+  });
+
+  // Add endpoint for query parameter test
+  targetApi.get('/users/search', (c) => {
+    const limit = c.req.query('limit');
+    const sort = c.req.query('sort');
+    return c.json({ 
+      results: [{ id: 1, name: 'John Doe' }],
+      limit: limit ? parseInt(limit) : 10,
+      sort: sort || 'asc'
+    });
   });
 
   beforeAll(async () => {
@@ -83,18 +97,15 @@ describe('Arbiter Integration Tests', () => {
     });
 
     // Start Arbiter servers
-    const servers = await startServers({
+    const { proxyServer: proxy, docsServer: docs } = await startServers({
       target: `http://localhost:${targetPort}`,
-      proxyPort,
-      docsPort,
-      verbose: false,
+      proxyPort: proxyPort,
+      docsPort: docsPort,
+      verbose: false
     });
-
-    proxyServer = servers.proxyServer;
-    docsServer = servers.docsServer;
-
-    // Wait a bit to ensure servers are ready
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    
+    proxyServer = proxy;
+    docsServer = docs;
   });
 
   afterAll(() => {
@@ -164,12 +175,18 @@ describe('Arbiter Integration Tests', () => {
     expect(spec.paths?.['/users']?.post).toBeDefined();
     expect(spec.paths?.['/users/{id}']?.get).toBeDefined();
 
-    // Validate schemas
-    expect(spec.components?.schemas).toBeDefined();
-    const userSchema = spec.components?.schemas?.User as OpenAPIV3_1.SchemaObject;
-    expect(userSchema).toBeDefined();
-    expect(userSchema.properties?.id).toBeDefined();
-    expect(userSchema.properties?.name).toBeDefined();
+    // Check request body schema
+    expect(spec.paths?.['/users']?.post?.requestBody).toBeDefined();
+    const requestBody = spec.paths?.['/users']?.post?.requestBody as OpenAPIV3_1.RequestBodyObject;
+    expect(requestBody.content?.['application/json']).toBeDefined();
+    expect(requestBody.content?.['application/json'].schema).toBeDefined();
+    
+    // Validate schema properties based on what we sent in the POST request
+    const schema = requestBody.content?.['application/json'].schema as OpenAPIV3_1.SchemaObject;
+    expect(schema).toBeDefined();
+    expect(schema.type).toBe('object');
+    expect(schema.properties?.name).toBeDefined();
+    expect((schema.properties?.name as OpenAPIV3_1.SchemaObject).type).toBe('string');
   });
 
   it('should handle query parameters', async () => {
