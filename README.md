@@ -41,6 +41,32 @@ And view the automatically generated documentation:
 open http://localhost:3001/docs
 ```
 
+### Docker Usage
+
+You can run Arbiter using Docker:
+
+```bash
+# Build the Docker image
+docker build -t arbiter .
+
+# Run the container
+docker run -p 3000:3000 -p 3001:3001 arbiter --target https://api.example.com
+```
+
+The container exposes:
+- Port 3000 for the proxy server
+- Port 3001 for the documentation server
+
+You can customize the ports and other options:
+
+```bash
+docker run -p 8080:8080 -p 8081:8081 arbiter \
+  --target https://api.example.com \
+  --proxy-port 8080 \
+  --docs-port 8081 \
+  --verbose
+```
+
 ## Usage Options
 
 | Option | Description | Default |
