@@ -15,7 +15,7 @@ COPY . .
 RUN npm run build
 
 # Expose ports for proxy and docs servers
-EXPOSE 3000 3001
+EXPOSE 8080 9000
 
 # Set default command
 CMD ["node", "dist/src/cli.js"] 

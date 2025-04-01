@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="ArbiterLogo.png" alt="Arbiter Logo" width="250">
+</p>
+
 # Arbiter
 
 Arbiter is a powerful API proxy and documentation generator that automatically creates OpenAPI specifications and HAR (HTTP Archive) recordings for any API you access through it.
@@ -26,19 +30,19 @@ npm install -g arbiter
 Start Arbiter by pointing it to your target API:
 
 ```bash
-arbiter --target https://api.example.com --proxy-port 3000 --docs-port 3001
+arbiter --target https://api.example.com
 ```
 
 Then send requests through the proxy:
 
 ```bash
-curl http://localhost:3000/users
+curl http://localhost:8080/users
 ```
 
 And view the automatically generated documentation:
 
 ```bash
-open http://localhost:3001/docs
+open http://localhost:9000/docs
 ```
 
 ### Docker Usage
@@ -50,20 +54,20 @@ You can run Arbiter using Docker:
 docker build -t arbiter .
 
 # Run the container
-docker run -p 3000:3000 -p 3001:3001 arbiter --target https://api.example.com
+docker run -p 8080:8080 -p 9000:9000 arbiter --target https://api.example.com
 ```
 
 The container exposes:
-- Port 3000 for the proxy server
-- Port 3001 for the documentation server
+- Port 8080 for the proxy server
+- Port 9000 for the documentation server
 
 You can customize the ports and other options:
 
 ```bash
-docker run -p 8080:8080 -p 8081:8081 arbiter \
+docker run -p 3000:3000 -p 3001:3001 arbiter \
   --target https://api.example.com \
-  --proxy-port 8080 \
-  --docs-port 8081 \
+  --port 3000 \
+  --docs-port 3001 \
   --verbose
 ```
 
@@ -71,19 +75,21 @@ docker run -p 8080:8080 -p 8081:8081 arbiter \
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--target` | Target API URL | (required) |
-| `--proxy-port` | Port for the proxy server | 3000 |
-| `--docs-port` | Port for the documentation server | 3001 |
-| `--verbose` | Enable verbose logging | false |
+| `-t, --target <url>` | Target API URL to proxy to | (required) |
+| `-p, --port <number>` | Port to run the proxy server on | 8080 |
+| `-d, --docs-port <number>` | Port to run the documentation server on | 9000 |
+| `--docs-only` | Run only the documentation server | false |
+| `--proxy-only` | Run only the proxy server | false |
+| `-v, --verbose` | Enable verbose logging | false |
 
 ## API Documentation
 
 After using the API through the proxy, you can access:
 
-- Interactive API docs: `http://localhost:3001/docs`
-- OpenAPI JSON: `http://localhost:3001/openapi.json`
-- OpenAPI YAML: `http://localhost:3001/openapi.yaml`
-- HAR Export: `http://localhost:3001/har`
+- Interactive API docs: `http://localhost:9000/docs`
+- OpenAPI JSON: `http://localhost:9000/openapi.json`
+- OpenAPI YAML: `http://localhost:9000/openapi.yaml`
+- HAR Export: `http://localhost:9000/har`
 
 ## How It Works
 
