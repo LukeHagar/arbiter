@@ -19,32 +19,6 @@ Arbiter is a powerful API proxy and documentation generator that automatically c
 
 ## Getting Started
 
-### Installation
-
-```bash
-npm install -g arbiter
-```
-
-### Basic Usage
-
-Start Arbiter by pointing it to your target API:
-
-```bash
-arbiter --target https://api.example.com
-```
-
-Then send requests through the proxy:
-
-```bash
-curl http://localhost:8080/users
-```
-
-And view the automatically generated documentation:
-
-```bash
-open http://localhost:9000/docs
-```
-
 ### Docker Usage
 
 You can run Arbiter using Docker:
