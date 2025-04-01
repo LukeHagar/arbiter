@@ -194,12 +194,14 @@ export class OpenAPIStore {
       if (obj.length === 0) return { type: 'array', items: { type: 'object' } };
 
       // Check if all items are objects with similar structure
-      const allObjects = obj.every(item => typeof item === 'object' && item !== null && !Array.isArray(item));
-      
+      const allObjects = obj.every(
+        (item) => typeof item === 'object' && item !== null && !Array.isArray(item)
+      );
+
       if (allObjects) {
         // Generate a schema for the first object
         const firstObjectSchema = this.generateJsonSchema(obj[0]);
-        
+
         // Use that as a template for all items
         return {
           type: 'array',
@@ -209,32 +211,35 @@ export class OpenAPIStore {
       }
 
       // Check if all items are primitives of the same type
-      if (obj.length > 0 && 
-          obj.every(item => typeof item === 'string' || 
-                           typeof item === 'number' || 
-                           typeof item === 'boolean')) {
+      if (
+        obj.length > 0 &&
+        obj.every(
+          (item) =>
+            typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean'
+        )
+      ) {
         // Handle arrays of primitives
         const firstItemType = typeof obj[0];
-        if (obj.every(item => typeof item === firstItemType)) {
+        if (obj.every((item) => typeof item === firstItemType)) {
           // For numbers, check if they're all integers
           if (firstItemType === 'number') {
             const isAllIntegers = obj.every(Number.isInteger);
             return {
               type: 'array',
               items: {
-                type: isAllIntegers ? 'integer' : 'number'
+                type: isAllIntegers ? 'integer' : 'number',
               },
-              example: obj
+              example: obj,
             };
           }
-          
+
           // For strings and booleans
           return {
             type: 'array',
             items: {
-              type: firstItemType as OpenAPIV3_1.NonArraySchemaObjectType
+              type: firstItemType as OpenAPIV3_1.NonArraySchemaObjectType,
             },
-            example: obj
+            example: obj,
           };
         }
       }
@@ -335,10 +340,12 @@ export class OpenAPIStore {
           value: String(value), // Ensure value is a string
         })),
         // Ensure postData is properly included for all requests with body
-        postData: request.body ? {
-          mimeType: request.contentType,
-          text: typeof request.body === 'string' ? request.body : JSON.stringify(request.body),
-        } : undefined,
+        postData: request.body
+          ? {
+              mimeType: request.contentType,
+              text: typeof request.body === 'string' ? request.body : JSON.stringify(request.body),
+            }
+          : undefined,
       },
       response: {
         status: response.status,
@@ -350,12 +357,18 @@ export class OpenAPIStore {
         })),
         content: {
           // If rawData is available, just store size but defer content processing
-          size: response.rawData ? response.rawData.length : 
-                response.body ? JSON.stringify(response.body).length : 0,
+          size: response.rawData
+            ? response.rawData.length
+            : response.body
+              ? JSON.stringify(response.body).length
+              : 0,
           mimeType: response.contentType || 'application/json',
           // Use a placeholder for rawData, or convert body as before
-          text: response.rawData ? '[Content stored but not processed for performance]' :
-                typeof response.body === 'string' ? response.body : JSON.stringify(response.body),
+          text: response.rawData
+            ? '[Content stored but not processed for performance]'
+            : typeof response.body === 'string'
+              ? response.body
+              : JSON.stringify(response.body),
         },
       },
     };
@@ -556,17 +569,17 @@ export class OpenAPIStore {
       responseObj.content[responseContentType] = {
         schema: {
           type: 'object',
-          description: 'Schema generation deferred to improve performance'
+          description: 'Schema generation deferred to improve performance',
         },
       };
-      
+
       // Store the raw data for later processing
       let pathMap = this.rawDataCache.get(path);
       if (!pathMap) {
         pathMap = new Map<string, RawResponseData>();
         this.rawDataCache.set(path, pathMap);
       }
-      
+
       pathMap.set(method, {
         rawData: response.rawData ? response.rawData.toString('base64') : '',
         status: response.status,
@@ -602,7 +615,7 @@ export class OpenAPIStore {
     // For each HAR entry with placeholder text, process the raw data
     for (let i = 0; i < this.harEntries.length; i++) {
       const entry = this.harEntries[i];
-      
+
       // Check if this entry has deferred processing
       if (entry.response.content.text === '[Content stored but not processed for performance]') {
         try {
@@ -610,21 +623,22 @@ export class OpenAPIStore {
           const url = new URL(entry.request.url);
           const path = url.pathname;
           const method = entry.request.method.toLowerCase();
-          
+
           // Try to get the raw data from our cache
           const pathMap = this.rawDataCache.get(path);
           if (!pathMap) continue;
-          
+
           const responseData = pathMap.get(method);
           if (!responseData || !responseData.rawData) continue;
-          
+
           // Get content type and encoding info
-          const contentEncoding = entry.response.headers.find(h => 
-            h.name.toLowerCase() === 'content-encoding')?.value;
-            
+          const contentEncoding = entry.response.headers.find(
+            (h) => h.name.toLowerCase() === 'content-encoding'
+          )?.value;
+
           // Process based on content type and encoding
           let text: string;
-          
+
           // Handle compressed content
           if (contentEncoding && contentEncoding.includes('gzip')) {
             const buffer = Buffer.from(responseData.rawData, 'base64');
@@ -635,7 +649,7 @@ export class OpenAPIStore {
             const buffer = Buffer.from(responseData.rawData, 'base64');
             text = buffer.toString('utf-8');
           }
-          
+
           // Process based on content type
           const contentType = entry.response.content.mimeType;
           if (contentType.includes('json')) {
@@ -686,7 +700,7 @@ export class OpenAPIStore {
         }
         if (!operation.responses[responseKey]) {
           operation.responses[responseKey] = {
-            description: `Response for status code ${responseKey}`
+            description: `Response for status code ${responseKey}`,
           };
         }
 
@@ -697,21 +711,23 @@ export class OpenAPIStore {
 
         // Determine content type from headers
         let contentType = 'application/json'; // Default
-        const contentTypeHeader = Object.keys(headers)
-          .find(key => key.toLowerCase() === 'content-type');
+        const contentTypeHeader = Object.keys(headers).find(
+          (key) => key.toLowerCase() === 'content-type'
+        );
         if (contentTypeHeader && headers[contentTypeHeader]) {
           contentType = headers[contentTypeHeader].split(';')[0];
         }
 
         // Check if content is compressed
-        const contentEncodingHeader = Object.keys(headers)
-          .find(key => key.toLowerCase() === 'content-encoding');
+        const contentEncodingHeader = Object.keys(headers).find(
+          (key) => key.toLowerCase() === 'content-encoding'
+        );
         const contentEncoding = contentEncodingHeader ? headers[contentEncodingHeader] : null;
 
         // Process based on encoding and content type
         try {
           let text: string;
-          
+
           // Handle compressed content
           if (contentEncoding && contentEncoding.includes('gzip')) {
             const buffer = Buffer.from(rawData, 'base64');
@@ -729,10 +745,10 @@ export class OpenAPIStore {
             try {
               // First attempt standard JSON parsing
               const jsonData = JSON.parse(text);
-              
+
               const schema = this.generateJsonSchema(jsonData);
               response.content[contentType] = {
-                schema
+                schema,
               };
             } catch (e) {
               // Try cleaning the JSON first
@@ -740,10 +756,10 @@ export class OpenAPIStore {
                 // Clean the JSON string
                 const cleanedText = this.cleanJsonString(text);
                 const jsonData = JSON.parse(cleanedText);
-                
+
                 const schema = this.generateJsonSchema(jsonData);
                 response.content[contentType] = {
-                  schema
+                  schema,
                 };
               } catch (e2) {
                 // If parsing still fails, try to infer the schema from structure
@@ -751,15 +767,15 @@ export class OpenAPIStore {
                   // Looks like JSON-like structure, infer schema
                   const schema = this.generateSchemaFromStructure(text);
                   response.content[contentType] = {
-                    schema
+                    schema,
                   };
                 } else {
                   // Not JSON-like, treat as string
                   response.content[contentType] = {
                     schema: {
                       type: 'string',
-                      description: 'Non-parseable content'
-                    }
+                      description: 'Non-parseable content',
+                    },
                   };
                 }
               }
@@ -770,8 +786,8 @@ export class OpenAPIStore {
               schema: {
                 type: 'string',
                 format: 'xml',
-                description: 'XML content'
-              }
+                description: 'XML content',
+              },
             };
           } else if (contentType.includes('image/')) {
             // Handle image content
@@ -779,18 +795,16 @@ export class OpenAPIStore {
               schema: {
                 type: 'string',
                 format: 'binary',
-                description: 'Image content'
-              }
+                description: 'Image content',
+              },
             };
           } else {
             // Handle other content types
             response.content[contentType] = {
               schema: {
                 type: 'string',
-                description: text.length > 100 ? 
-                  `${text.substring(0, 100)}...` : 
-                  text
-              }
+                description: text.length > 100 ? `${text.substring(0, 100)}...` : text,
+              },
             };
           }
         } catch (error) {
@@ -799,8 +813,8 @@ export class OpenAPIStore {
           response.content['text/plain'] = {
             schema: {
               type: 'string',
-              description: 'Error processing content'
-            }
+              description: 'Error processing content',
+            },
           };
         }
       }
@@ -813,7 +827,7 @@ export class OpenAPIStore {
   public getOpenAPISpec(): OpenAPIV3_1.Document {
     // Process any deferred raw data before generating the spec
     this.processRawData();
-    
+
     const paths = Array.from(this.endpoints.entries()).reduce<Required<PathsObject>>(
       (acc, [key, info]) => {
         const [method, path] = key.split(':');
@@ -939,7 +953,7 @@ export class OpenAPIStore {
   public generateHAR(): any {
     // Process any raw data before generating HAR
     this.processHAREntries();
-    
+
     return {
       log: {
         version: '1.2',
@@ -956,7 +970,7 @@ export class OpenAPIStore {
   private generateSchemaFromStructure(text: string): OpenAPIV3_1.SchemaObject {
     // First, try to determine if this is an array or object
     const trimmedText = text.trim();
-    
+
     if (trimmedText.startsWith('[') && trimmedText.endsWith(']')) {
       // Looks like an array
       return {
@@ -964,37 +978,37 @@ export class OpenAPIStore {
         description: 'Array-like structure detected',
         items: {
           type: 'object',
-          description: 'Array items (structure inferred)'
-        }
+          description: 'Array items (structure inferred)',
+        },
       };
     }
-    
+
     if (trimmedText.startsWith('{') && trimmedText.endsWith('}')) {
       // Looks like an object - try to extract some field names
       try {
         // Extract property names using a regex that looks for different "key": patterns
         // This matcher is more flexible and can handle single quotes, double quotes, and unquoted keys
         const propMatches = trimmedText.match(/["']?([a-zA-Z0-9_$]+)["']?\s*:/g) || [];
-        
+
         if (propMatches.length > 0) {
           const properties: Record<string, OpenAPIV3_1.SchemaObject> = {};
-          
+
           // Extract property names and create a basic schema
-          propMatches.forEach(match => {
+          propMatches.forEach((match) => {
             // Clean up the property name by removing quotes and colon
             const propName = match.replace(/["']/g, '').replace(':', '').trim();
             if (propName && !properties[propName]) {
               // Try to guess the type based on what follows the property
               const propPattern = new RegExp(`["']?${propName}["']?\\s*:\\s*(.{1,50})`, 'g');
               const valueMatch = propPattern.exec(trimmedText);
-              
+
               if (valueMatch && valueMatch[1]) {
                 const valueStart = valueMatch[1].trim();
-                
+
                 if (valueStart.startsWith('{')) {
                   properties[propName] = {
                     type: 'object',
-                    description: 'Nested object detected'
+                    description: 'Nested object detected',
                   };
                 } else if (valueStart.startsWith('[')) {
                   properties[propName] = {
@@ -1002,8 +1016,8 @@ export class OpenAPIStore {
                     description: 'Array value detected',
                     items: {
                       type: 'object',
-                      description: 'Array items (structure inferred)'
-                    }
+                      description: 'Array items (structure inferred)',
+                    },
                   };
                 } else if (valueStart.startsWith('"') || valueStart.startsWith("'")) {
                   properties[propName] = {
@@ -1024,39 +1038,39 @@ export class OpenAPIStore {
                 } else {
                   properties[propName] = {
                     type: 'string',
-                    description: 'Property detected by structure analysis'
+                    description: 'Property detected by structure analysis',
                   };
                 }
               } else {
                 properties[propName] = {
                   type: 'string',
-                  description: 'Property detected by structure analysis'
+                  description: 'Property detected by structure analysis',
                 };
               }
             }
           });
-          
+
           return {
             type: 'object',
             properties,
-            description: 'Object structure detected with properties'
+            description: 'Object structure detected with properties',
           };
         }
       } catch (e) {
         // If property extraction fails, fall back to a generic object schema
       }
-      
+
       // Generic object
       return {
         type: 'object',
-        description: 'Object-like structure detected'
+        description: 'Object-like structure detected',
       };
     }
-    
+
     // Not clearly structured as JSON
     return {
       type: 'string',
-      description: 'Unstructured content'
+      description: 'Unstructured content',
     };
   }
 
@@ -1067,31 +1081,29 @@ export class OpenAPIStore {
       let cleaned = text
         .replace(/\/\/.*$/gm, '') // Remove single line comments
         .replace(/\/\*[\s\S]*?\*\//g, ''); // Remove multi-line comments
-      
+
       // Handle trailing commas in objects and arrays
-      cleaned = cleaned
-        .replace(/,\s*}/g, '}')
-        .replace(/,\s*\]/g, ']');
-      
+      cleaned = cleaned.replace(/,\s*}/g, '}').replace(/,\s*\]/g, ']');
+
       // Fix unquoted property names (only basic cases)
       cleaned = cleaned.replace(/([{,]\s*)([a-zA-Z0-9_$]+)(\s*:)/g, '$1"$2"$3');
-      
+
       // Fix single quotes used for strings (convert to double quotes)
       // This is complex - we need to avoid replacing quotes inside quotes
       let inString = false;
       let inSingleQuotedString = false;
       let result = '';
-      
+
       for (let i = 0; i < cleaned.length; i++) {
         const char = cleaned[i];
-        const prevChar = i > 0 ? cleaned[i-1] : '';
-        
+        const prevChar = i > 0 ? cleaned[i - 1] : '';
+
         // Handle escape sequences
         if (prevChar === '\\') {
           result += char;
           continue;
         }
-        
+
         if (char === '"' && !inSingleQuotedString) {
           inString = !inString;
           result += char;
@@ -1102,7 +1114,7 @@ export class OpenAPIStore {
           result += char;
         }
       }
-      
+
       return result;
     } catch (e) {
       // If cleaning fails, return the original text

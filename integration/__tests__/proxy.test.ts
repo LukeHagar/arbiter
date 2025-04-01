@@ -82,10 +82,10 @@ describe('Arbiter Integration Tests', () => {
   targetApi.get('/users/search', (c) => {
     const limit = c.req.query('limit');
     const sort = c.req.query('sort');
-    return c.json({ 
+    return c.json({
       results: [{ id: 1, name: 'John Doe' }],
       limit: limit ? parseInt(limit) : 10,
-      sort: sort || 'asc'
+      sort: sort || 'asc',
     });
   });
 
@@ -101,9 +101,9 @@ describe('Arbiter Integration Tests', () => {
       target: `http://localhost:${targetPort}`,
       proxyPort: proxyPort,
       docsPort: docsPort,
-      verbose: false
+      verbose: false,
     });
-    
+
     proxyServer = proxy;
     docsServer = docs;
   });
@@ -180,7 +180,7 @@ describe('Arbiter Integration Tests', () => {
     const requestBody = spec.paths?.['/users']?.post?.requestBody as OpenAPIV3_1.RequestBodyObject;
     expect(requestBody.content?.['application/json']).toBeDefined();
     expect(requestBody.content?.['application/json'].schema).toBeDefined();
-    
+
     // Validate schema properties based on what we sent in the POST request
     const schema = requestBody.content?.['application/json'].schema as OpenAPIV3_1.SchemaObject;
     expect(schema).toBeDefined();

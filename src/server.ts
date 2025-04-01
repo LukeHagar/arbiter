@@ -51,14 +51,14 @@ class HARStore {
     return this.har;
   }
 
-  public addEntry(entry: typeof this.har.log.entries[0]) {
+  public addEntry(entry: (typeof this.har.log.entries)[0]) {
     this.har.log.entries.push(entry);
   }
 
   public clear() {
     this.har.log.entries = [];
   }
-  
+
   // Process any entries with raw response buffers
   private processRawBuffers() {
     for (const entry of this.har.log.entries) {
@@ -66,17 +66,18 @@ class HARStore {
         try {
           const buffer = entry._rawResponseBuffer;
           const contentType = entry.response.content.mimeType;
-          
+
           // Process buffer based on content-encoding header
-          const contentEncoding = entry.response.headers.find(h => 
-            h.name.toLowerCase() === 'content-encoding')?.value;
-          
+          const contentEncoding = entry.response.headers.find(
+            (h) => h.name.toLowerCase() === 'content-encoding'
+          )?.value;
+
           if (contentEncoding) {
             if (contentEncoding.toLowerCase() === 'gzip') {
               try {
                 const decompressed = zlib.gunzipSync(buffer);
                 const text = decompressed.toString('utf-8');
-                
+
                 if (contentType.includes('json')) {
                   try {
                     entry.response.content.text = text;
@@ -95,7 +96,7 @@ class HARStore {
           } else {
             // For non-compressed responses
             const text = buffer.toString('utf-8');
-            
+
             if (contentType.includes('json')) {
               try {
                 const json = JSON.parse(text);
@@ -110,7 +111,7 @@ class HARStore {
         } catch (e) {
           entry.response.content.text = '[Error processing response content]';
         }
-        
+
         // Remove the raw buffer to free memory
         delete entry._rawResponseBuffer;
       }
@@ -184,7 +185,7 @@ export async function startServers({
             res.end(JSON.stringify({ error: 'Proxy error', message: err.message }));
           }
         });
-        
+
         // Handle proxy response
         proxyServer.on('proxyReq', (proxyReq, req, res) => {
           // Store the request body for later use
@@ -193,7 +194,7 @@ export async function startServers({
             requestBodies.set(requestId, req.body);
             // Set a custom header to identify the request
             proxyReq.setHeader('x-request-id', requestId);
-            
+
             // If the body has been consumed by the body-parser, we need to restream it to the proxy
             if (req.body) {
               const bodyData = JSON.stringify(req.body);
@@ -211,35 +212,35 @@ export async function startServers({
         proxyServer.on('proxyRes', (proxyRes, req, res) => {
           const startTime = Date.now();
           const chunks: Buffer[] = [];
-          
+
           // Collect response chunks
           proxyRes.on('data', (chunk: Buffer) => {
             chunks.push(Buffer.from(chunk));
           });
-          
+
           // When the response is complete
           proxyRes.on('end', () => {
             const endTime = Date.now();
             const responseTime = endTime - startTime;
-            
+
             // Combine response chunks
             const buffer = Buffer.concat(chunks);
-            
+
             // Set status code
             res.statusCode = proxyRes.statusCode || 200;
             res.statusMessage = proxyRes.statusMessage || '';
-            
+
             // Copy ALL headers exactly as they are
-            Object.keys(proxyRes.headers).forEach(key => {
+            Object.keys(proxyRes.headers).forEach((key) => {
               const headerValue = proxyRes.headers[key];
               if (headerValue) {
                 res.setHeader(key, headerValue);
               }
             });
-            
+
             // Send the buffer as the response body without modifying it
             res.end(buffer);
-            
+
             // Process HAR and OpenAPI data in the background (next event loop tick)
             // to avoid delaying the response to the client
             setImmediate(() => {
@@ -247,12 +248,12 @@ export async function startServers({
               const method = req.method || 'GET';
               const originalUrl = new URL(`http://${req.headers.host}${req.url}`);
               const path = originalUrl.pathname;
-              
+
               // Skip web asset requests - don't process JS, CSS, HTML, etc. but keep images and icons
               if (
-                path.endsWith('.js') || 
-                path.endsWith('.css') || 
-                path.endsWith('.html') || 
+                path.endsWith('.js') ||
+                path.endsWith('.css') ||
+                path.endsWith('.html') ||
                 path.endsWith('.htm') ||
                 path.endsWith('.woff') ||
                 path.endsWith('.woff2') ||
@@ -265,7 +266,7 @@ export async function startServers({
                 }
                 return;
               }
-              
+
               // Skip if contentType is related to web assets, but keep images
               const contentType = proxyRes.headers['content-type'] || '';
               if (
@@ -279,14 +280,14 @@ export async function startServers({
                 }
                 return;
               }
-              
+
               // Extract query parameters
               const queryParams: Record<string, string> = {};
               const urlSearchParams = new URLSearchParams(originalUrl.search);
               urlSearchParams.forEach((value, key) => {
                 queryParams[key] = value;
               });
-              
+
               // Extract request headers
               const requestHeaders: Record<string, string> = {};
               for (const [key, value] of Object.entries(req.headers)) {
@@ -296,7 +297,7 @@ export async function startServers({
                   requestHeaders[key] = value[0];
                 }
               }
-              
+
               // Extract response headers
               const responseHeaders: Record<string, string> = {};
               for (const [key, value] of Object.entries(proxyRes.headers)) {
@@ -306,7 +307,7 @@ export async function startServers({
                   responseHeaders[key] = value[0];
                 }
               }
-              
+
               // Get request body from our map if available
               let requestBody = undefined;
               if (['POST', 'PUT', 'PATCH'].includes(method)) {
@@ -320,10 +321,10 @@ export async function startServers({
                   requestBody = req.body;
                 }
               }
-              
+
               // Store minimal data for HAR entry - delay expensive processing
               const requestUrl = `${target}${path}${originalUrl.search}`;
-              
+
               // Create lighter HAR entry with minimal processing
               const harEntry = {
                 startedDateTime: new Date(startTime).toISOString(),
@@ -335,30 +336,41 @@ export async function startServers({
                   headers: Object.entries(requestHeaders)
                     .filter(([key]) => key.toLowerCase() !== 'content-length')
                     .map(([name, value]) => ({ name, value })),
-                  queryString: Object.entries(queryParams).map(([name, value]) => ({ name, value })),
-                  postData: requestBody ? {
-                    mimeType: requestHeaders['content-type'] || 'application/json',
-                    text: typeof requestBody === 'string' ? requestBody : JSON.stringify(requestBody)
-                  } : undefined,
+                  queryString: Object.entries(queryParams).map(([name, value]) => ({
+                    name,
+                    value,
+                  })),
+                  postData: requestBody
+                    ? {
+                        mimeType: requestHeaders['content-type'] || 'application/json',
+                        text:
+                          typeof requestBody === 'string'
+                            ? requestBody
+                            : JSON.stringify(requestBody),
+                      }
+                    : undefined,
                 },
                 response: {
                   status: proxyRes.statusCode || 200,
                   statusText: proxyRes.statusCode === 200 ? 'OK' : 'Error',
                   httpVersion: 'HTTP/1.1',
-                  headers: Object.entries(responseHeaders).map(([name, value]) => ({ name, value })),
+                  headers: Object.entries(responseHeaders).map(([name, value]) => ({
+                    name,
+                    value,
+                  })),
                   content: {
                     size: buffer.length,
                     mimeType: responseHeaders['content-type'] || 'application/octet-stream',
                     // Store raw buffer and defer text conversion/parsing until needed
-                    text: '[Response content stored]'
+                    text: '[Response content stored]',
                   },
                 },
                 _rawResponseBuffer: buffer, // Store for later processing if needed
               };
-              
+
               // Add the HAR entry to the store
               harStore.addEntry(harEntry);
-              
+
               // Extract security schemes from headers - minimal work
               const securitySchemes: SecurityInfo[] = [];
               if (requestHeaders['x-api-key']) {
@@ -380,7 +392,7 @@ export async function startServers({
                   scheme: 'basic' as const,
                 });
               }
-              
+
               // Store minimal data in OpenAPI store - just record the endpoint and method
               // This defers schema generation until actually requested
               openApiStore.recordEndpoint(
@@ -402,39 +414,39 @@ export async function startServers({
                   rawData: buffer,
                 }
               );
-              
+
               if (verbose) {
                 console.log(`${method} ${path} -> ${proxyRes.statusCode}`);
               }
             }); // End of setImmediate
           });
         });
-      }
-    ]
+      },
+    ],
   });
 
   proxyApp.use('/', proxyMiddleware);
-  
+
   // Create docs app with Express
   const docsApp = express();
   docsApp.use(cors());
-  
+
   // Create documentation endpoints
   docsApp.get('/har', (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     res.send(JSON.stringify(harStore.getHAR()));
   });
-  
+
   docsApp.get('/openapi.json', (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     res.send(JSON.stringify(openApiStore.getOpenAPISpec()));
   });
-  
+
   docsApp.get('/openapi.yaml', (req, res) => {
     res.setHeader('Content-Type', 'text/plain');
     res.send(openApiStore.getOpenAPISpecAsYAML());
   });
-  
+
   docsApp.get('/docs', (req, res) => {
     res.setHeader('Content-Type', 'text/html');
     res.send(`
@@ -452,7 +464,7 @@ export async function startServers({
       </html>
     `);
   });
-  
+
   // Home page with links
   docsApp.get('/', (req, res) => {
     res.setHeader('Content-Type', 'text/html');
@@ -482,7 +494,7 @@ export async function startServers({
       </html>
     `);
   });
-  
+
   // Function to check if a port is available
   async function isPortAvailable(port: number): Promise<boolean> {
     return new Promise((resolve) => {
@@ -497,7 +509,7 @@ export async function startServers({
         .listen(port);
     });
   }
-  
+
   // Function to find an available port
   async function findAvailablePort(startPort: number): Promise<number> {
     let port = startPort;
@@ -506,11 +518,11 @@ export async function startServers({
     }
     return port;
   }
-  
+
   // Start servers
   const availableProxyPort = await findAvailablePort(proxyPort);
   const availableDocsPort = await findAvailablePort(docsPort);
-  
+
   if (availableProxyPort !== proxyPort) {
     console.log(
       chalk.yellow(`Port ${proxyPort} is in use, using port ${availableProxyPort} instead`)
@@ -521,11 +533,11 @@ export async function startServers({
       chalk.yellow(`Port ${docsPort} is in use, using port ${availableDocsPort} instead`)
     );
   }
-  
+
   // Create HTTP servers
   const proxyServer = createServer(proxyApp);
   const docsServer = createServer(docsApp);
-  
+
   // Start servers
   return new Promise((resolve, reject) => {
     try {
@@ -539,10 +551,14 @@ export async function startServers({
           console.log(chalk.cyan(`  API Reference: http://localhost:${availableDocsPort}/docs`));
           console.log('\n' + chalk.bold('Exports:'));
           console.log(chalk.cyan(`  HAR Export: http://localhost:${availableDocsPort}/har`));
-          console.log(chalk.cyan(`  OpenAPI JSON: http://localhost:${availableDocsPort}/openapi.json`));
-          console.log(chalk.cyan(`  OpenAPI YAML: http://localhost:${availableDocsPort}/openapi.yaml`));
+          console.log(
+            chalk.cyan(`  OpenAPI JSON: http://localhost:${availableDocsPort}/openapi.json`)
+          );
+          console.log(
+            chalk.cyan(`  OpenAPI YAML: http://localhost:${availableDocsPort}/openapi.yaml`)
+          );
           console.log('\n' + chalk.yellow('Press Ctrl+C to stop'));
-          
+
           resolve({ proxyServer, docsServer });
         });
       });
@@ -550,7 +566,7 @@ export async function startServers({
       reject(error);
     }
   });
-  
+
   // Handle graceful shutdown
   const shutdown = (signal: string): void => {
     console.info(`Received ${signal}, shutting down...`);
@@ -558,11 +574,11 @@ export async function startServers({
     docsServer.close();
     process.exit(0);
   };
-  
+
   process.on('SIGTERM', () => {
     shutdown('SIGTERM');
   });
-  
+
   process.on('SIGINT', () => {
     shutdown('SIGINT');
   });

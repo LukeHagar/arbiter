@@ -11,10 +11,10 @@ export function harRecorder(store: OpenAPIStore): (c: Context, next: Next) => Pr
       try {
         // Clone the request body based on content type
         const contentType = c.req.header('content-type') || '';
-        
+
         // Create a copy of the request to avoid consuming the body
         const reqClone = c.req.raw.clone();
-        
+
         if (typeof contentType === 'string' && contentType.includes('application/json')) {
           const text = await reqClone.text();
           try {
@@ -22,7 +22,10 @@ export function harRecorder(store: OpenAPIStore): (c: Context, next: Next) => Pr
           } catch (e) {
             requestBody = text; // Keep as text if JSON parsing fails
           }
-        } else if (typeof contentType === 'string' && contentType.includes('application/x-www-form-urlencoded')) {
+        } else if (
+          typeof contentType === 'string' &&
+          contentType.includes('application/x-www-form-urlencoded')
+        ) {
           const formData = await reqClone.formData();
           requestBody = Object.fromEntries(formData);
         } else if (typeof contentType === 'string' && contentType.includes('text/')) {
@@ -81,7 +84,7 @@ export function harRecorder(store: OpenAPIStore): (c: Context, next: Next) => Pr
           // Clone the response to avoid consuming the body
           const resClone = c.res.clone();
           const contentType = c.res.headers.get('content-type') || '';
-          
+
           if (typeof contentType === 'string' && contentType.includes('application/json')) {
             const text = await resClone.text();
             try {
@@ -96,7 +99,7 @@ export function harRecorder(store: OpenAPIStore): (c: Context, next: Next) => Pr
       } catch (e) {
         console.error('Error getting response body:', e);
       }
-      
+
       // Record the endpoint
       store.recordEndpoint(
         c.req.path,
@@ -111,7 +114,7 @@ export function harRecorder(store: OpenAPIStore): (c: Context, next: Next) => Pr
           status: c.res?.status || 500,
           headers: responseHeaders,
           contentType: c.res?.headers.get('content-type') || 'application/json',
-          body: responseBody // Now using captured response body
+          body: responseBody, // Now using captured response body
         }
       );
     } catch (error) {

@@ -58,7 +58,7 @@ describe('HAR Recorder Middleware', () => {
   it('should handle POST requests with JSON body', async () => {
     const requestBody = { name: 'Test User', email: 'test@example.com' };
     const jsonBody = JSON.stringify(requestBody);
-    
+
     const store = new Map<string, any>();
     const ctx = {
       req: {
@@ -99,12 +99,12 @@ describe('HAR Recorder Middleware', () => {
     expect(har.log.entries).toHaveLength(1);
     expect(har.log.entries[0].request.method).toBe('POST');
     expect(har.log.entries[0].request.url).toBe('http://localhost:8080/users');
-    
+
     // Check request body was properly captured
     const entry = openApiStore.getOpenAPISpec().paths?.['/users']?.post;
     expect(entry).toBeDefined();
     expect(entry?.requestBody).toBeDefined();
-    
+
     // Check response body and status
     expect(har.log.entries[0].response.status).toBe(201);
     expect(har.log.entries[0].response.content.text).toEqual(expect.stringContaining('Test User'));
@@ -113,7 +113,7 @@ describe('HAR Recorder Middleware', () => {
   it('should handle PUT requests with JSON body', async () => {
     const requestBody = { name: 'Updated User', email: 'updated@example.com' };
     const jsonBody = JSON.stringify(requestBody);
-    
+
     const store = new Map<string, any>();
     const ctx = {
       req: {
@@ -153,7 +153,7 @@ describe('HAR Recorder Middleware', () => {
     const har = openApiStore.generateHAR();
     expect(har.log.entries).toHaveLength(1);
     expect(har.log.entries[0].request.method).toBe('PUT');
-    
+
     // Check request body was properly captured
     const entry = openApiStore.getOpenAPISpec().paths?.['/users/{id}']?.put;
     expect(entry).toBeDefined();
@@ -163,7 +163,7 @@ describe('HAR Recorder Middleware', () => {
   it('should handle PATCH requests with JSON body', async () => {
     const requestBody = { name: 'Partially Updated User' };
     const jsonBody = JSON.stringify(requestBody);
-    
+
     const store = new Map<string, any>();
     const ctx = {
       req: {
@@ -188,12 +188,15 @@ describe('HAR Recorder Middleware', () => {
     } as unknown as Context;
 
     const next = async () => {
-      ctx.res = new Response(JSON.stringify({ id: 1, name: 'Partially Updated User', email: 'existing@example.com' }), {
-        status: 200,
-        headers: new Headers({
-          'content-type': 'application/json',
-        }),
-      });
+      ctx.res = new Response(
+        JSON.stringify({ id: 1, name: 'Partially Updated User', email: 'existing@example.com' }),
+        {
+          status: 200,
+          headers: new Headers({
+            'content-type': 'application/json',
+          }),
+        }
+      );
     };
 
     // Get the middleware function and call it
@@ -203,7 +206,7 @@ describe('HAR Recorder Middleware', () => {
     const har = openApiStore.generateHAR();
     expect(har.log.entries).toHaveLength(1);
     expect(har.log.entries[0].request.method).toBe('PATCH');
-    
+
     // Check request body was properly captured
     const entry = openApiStore.getOpenAPISpec().paths?.['/users/{id}']?.patch;
     expect(entry).toBeDefined();
@@ -213,9 +216,9 @@ describe('HAR Recorder Middleware', () => {
   it('should handle form data in requests', async () => {
     const formData = new Map([
       ['username', 'testuser'],
-      ['email', 'test@example.com']
+      ['email', 'test@example.com'],
     ]);
-    
+
     const store = new Map<string, any>();
     const ctx = {
       req: {
@@ -254,7 +257,7 @@ describe('HAR Recorder Middleware', () => {
 
     const har = openApiStore.generateHAR();
     expect(har.log.entries).toHaveLength(1);
-    
+
     // Check form data was captured
     const entry = openApiStore.getOpenAPISpec().paths?.['/form']?.post;
     expect(entry).toBeDefined();
@@ -263,7 +266,7 @@ describe('HAR Recorder Middleware', () => {
 
   it('should handle text content in requests', async () => {
     const textContent = 'This is a plain text content';
-    
+
     const store = new Map<string, any>();
     const ctx = {
       req: {
@@ -302,7 +305,7 @@ describe('HAR Recorder Middleware', () => {
 
     const har = openApiStore.generateHAR();
     expect(har.log.entries).toHaveLength(1);
-    
+
     // Check text content was captured
     const entry = openApiStore.getOpenAPISpec().paths?.['/text']?.post;
     expect(entry).toBeDefined();
@@ -351,20 +354,20 @@ describe('HAR Recorder Middleware', () => {
       { name: 'foo', value: 'bar' },
       { name: 'baz', value: 'qux' },
     ]);
-    
+
     // Check query parameters in OpenAPI spec
     const parameters = openApiStore.getOpenAPISpec().paths?.['/test']?.get?.parameters;
     expect(parameters).toBeDefined();
     expect(parameters).toContainEqual(
       expect.objectContaining({
         name: 'foo',
-        in: 'query'
+        in: 'query',
       })
     );
     expect(parameters).toContainEqual(
       expect.objectContaining({
         name: 'baz',
-        in: 'query'
+        in: 'query',
       })
     );
   });
@@ -374,7 +377,7 @@ describe('HAR Recorder Middleware', () => {
     const customHeaders: Record<string, string> = {
       'content-type': 'application/json',
       'x-custom-header': 'test-value',
-      'authorization': 'Bearer test-token',
+      authorization: 'Bearer test-token',
     };
 
     const ctx = {
@@ -415,19 +418,19 @@ describe('HAR Recorder Middleware', () => {
       'get',
       {
         query: {},
-        headers: { 
-          'authorization': 'Bearer test-token',
-          'x-custom-header': 'test-value'
+        headers: {
+          authorization: 'Bearer test-token',
+          'x-custom-header': 'test-value',
         },
         contentType: 'application/json',
         body: null,
-        security: [{ type: 'http', scheme: 'bearer' }]
+        security: [{ type: 'http', scheme: 'bearer' }],
       },
       {
         status: 200,
         headers: {},
         contentType: 'application/json',
-        body: { success: true }
+        body: { success: true },
       }
     );
 
@@ -440,17 +443,17 @@ describe('HAR Recorder Middleware', () => {
       name: 'x-custom-header',
       value: 'test-value',
     });
-    
+
     // Check headers in OpenAPI spec
     const parameters = openApiStore.getOpenAPISpec().paths?.['/test']?.get?.parameters;
     expect(parameters).toBeDefined();
     expect(parameters).toContainEqual(
       expect.objectContaining({
         name: 'x-custom-header',
-        in: 'header'
+        in: 'header',
       })
     );
-    
+
     // Check security schemes for auth header
     const spec = openApiStore.getOpenAPISpec();
     expect(spec.components?.securitySchemes?.http_).toBeDefined();
@@ -500,11 +503,12 @@ describe('HAR Recorder Middleware', () => {
       name: 'x-custom-response',
       value: 'test-value',
     });
-    
+
     // Check response headers in OpenAPI spec
-    const responseObj = openApiStore.getOpenAPISpec().paths?.['/test']?.get?.responses?.[200] as OpenAPIV3_1.ResponseObject;
+    const responseObj = openApiStore.getOpenAPISpec().paths?.['/test']?.get
+      ?.responses?.[200] as OpenAPIV3_1.ResponseObject;
     expect(responseObj).toBeDefined();
-    
+
     // Cast to ResponseObject to access headers property
     if (responseObj && 'headers' in responseObj && responseObj.headers) {
       expect(Object.keys(responseObj.headers).length).toBeGreaterThan(0);
@@ -550,7 +554,7 @@ describe('HAR Recorder Middleware', () => {
 
     const har = openApiStore.generateHAR();
     expect(har.log.entries[0].response.status).toBe(500);
-    
+
     // Check error response in OpenAPI spec
     const errorResponse = openApiStore.getOpenAPISpec().paths?.['/error']?.get?.responses?.[500];
     expect(errorResponse).toBeDefined();
@@ -564,7 +568,9 @@ describe('HAR Recorder Middleware', () => {
         url: 'http://localhost:8080/test',
         path: '/test',
         query: {},
-        header: () => { throw new Error('Test error'); }, // Deliberately throw an error
+        header: () => {
+          throw new Error('Test error');
+        }, // Deliberately throw an error
         raw: {
           clone: () => ({
             text: async () => '',
@@ -589,7 +595,7 @@ describe('HAR Recorder Middleware', () => {
 
     // Get the middleware function and call it
     const middleware = harRecorder(openApiStore);
-    
+
     // Should not throw
     await expect(middleware(ctx, next)).resolves.not.toThrow();
   });

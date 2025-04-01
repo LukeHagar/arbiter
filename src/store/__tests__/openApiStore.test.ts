@@ -577,7 +577,7 @@ describe('OpenAPI Store', () => {
   describe('Basic functionality', () => {
     it('should initialize with correct default values', () => {
       const spec = openApiStore.getOpenAPISpec();
-      
+
       expect(spec.openapi).toBe('3.1.0');
       expect(spec.info.title).toBe('API Documentation');
       expect(spec.info.version).toBe('1.0.0');
@@ -588,7 +588,7 @@ describe('OpenAPI Store', () => {
     it('should set target URL correctly', () => {
       openApiStore.setTargetUrl('https://example.com/api');
       const spec = openApiStore.getOpenAPISpec();
-      
+
       expect(spec.servers?.[0]?.url).toBe('https://example.com/api');
     });
 
@@ -600,11 +600,11 @@ describe('OpenAPI Store', () => {
         { query: {}, headers: {}, contentType: 'application/json', body: null },
         { status: 200, headers: {}, contentType: 'application/json', body: { success: true } }
       );
-      
+
       // Verify it was added
       const spec1 = openApiStore.getOpenAPISpec();
       expect(Object.keys(spec1.paths || {})).toHaveLength(1);
-      
+
       // Clear and verify it's gone
       openApiStore.clear();
       const spec2 = openApiStore.getOpenAPISpec();
@@ -617,79 +617,84 @@ describe('OpenAPI Store', () => {
       openApiStore.recordEndpoint(
         '/users',
         'get',
-        { 
-          query: { limit: '10', offset: '0' }, 
-          headers: { 'accept': 'application/json' }, 
-          contentType: 'application/json', 
-          body: null 
+        {
+          query: { limit: '10', offset: '0' },
+          headers: { accept: 'application/json' },
+          contentType: 'application/json',
+          body: null,
         },
-        { 
-          status: 200, 
-          headers: { 'content-type': 'application/json' }, 
-          contentType: 'application/json', 
-          body: [{ id: 1, name: 'John Doe' }, { id: 2, name: 'Jane Smith' }] 
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+          contentType: 'application/json',
+          body: [
+            { id: 1, name: 'John Doe' },
+            { id: 2, name: 'Jane Smith' },
+          ],
         }
       );
-      
+
       const spec = openApiStore.getOpenAPISpec();
-      
+
       // Check path exists
       expect(spec.paths?.['/users']).toBeDefined();
       expect(spec.paths?.['/users']?.get).toBeDefined();
-      
+
       // Check query parameters
       const params = spec.paths?.['/users']?.get?.parameters;
       expect(params).toBeDefined();
       expect(params).toContainEqual(
         expect.objectContaining({
           name: 'limit',
-          in: 'query'
+          in: 'query',
         })
       );
       expect(params).toContainEqual(
         expect.objectContaining({
           name: 'offset',
-          in: 'query'
+          in: 'query',
         })
       );
-      
+
       // Check response
       expect(spec.paths?.['/users']?.get?.responses?.[200]).toBeDefined();
-      const content = (spec.paths?.['/users']?.get?.responses?.[200] as OpenAPIV3_1.ResponseObject)?.content;
+      const content = (spec.paths?.['/users']?.get?.responses?.[200] as OpenAPIV3_1.ResponseObject)
+        ?.content;
       expect(content?.['application/json']).toBeDefined();
     });
 
     it('should record a POST endpoint with request body', () => {
       const requestBody = { name: 'Test User', email: 'test@example.com' };
-      
+
       openApiStore.recordEndpoint(
         '/users',
         'post',
-        { 
-          query: {}, 
-          headers: { 'content-type': 'application/json' }, 
-          contentType: 'application/json', 
-          body: requestBody 
+        {
+          query: {},
+          headers: { 'content-type': 'application/json' },
+          contentType: 'application/json',
+          body: requestBody,
         },
-        { 
-          status: 201, 
-          headers: { 'content-type': 'application/json' }, 
-          contentType: 'application/json', 
-          body: { id: 1, ...requestBody } 
+        {
+          status: 201,
+          headers: { 'content-type': 'application/json' },
+          contentType: 'application/json',
+          body: { id: 1, ...requestBody },
         }
       );
-      
+
       const spec = openApiStore.getOpenAPISpec();
-      
+
       // Check path exists
       expect(spec.paths?.['/users']).toBeDefined();
       expect(spec.paths?.['/users']?.post).toBeDefined();
-      
+
       // Check request body
       expect(spec.paths?.['/users']?.post?.requestBody).toBeDefined();
-      const content = (spec.paths?.['/users']?.post?.requestBody as OpenAPIV3_1.RequestBodyObject)?.content;
+      const content = (spec.paths?.['/users']?.post?.requestBody as OpenAPIV3_1.RequestBodyObject)
+        ?.content;
       expect(content?.['application/json']).toBeDefined();
-      
+
       // Check response
       expect(spec.paths?.['/users']?.post?.responses?.[201]).toBeDefined();
     });
@@ -699,28 +704,44 @@ describe('OpenAPI Store', () => {
         '/users/123',
         'get',
         { query: {}, headers: {}, contentType: 'application/json', body: null },
-        { status: 200, headers: {}, contentType: 'application/json', body: { id: 123, name: 'John Doe' } }
+        {
+          status: 200,
+          headers: {},
+          contentType: 'application/json',
+          body: { id: 123, name: 'John Doe' },
+        }
       );
-      
+
       // Now record another endpoint with a different ID to help OpenAPI identify the path parameter
       openApiStore.recordEndpoint(
         '/users/456',
         'get',
         { query: {}, headers: {}, contentType: 'application/json', body: null },
-        { status: 200, headers: {}, contentType: 'application/json', body: { id: 456, name: 'Jane Smith' } }
+        {
+          status: 200,
+          headers: {},
+          contentType: 'application/json',
+          body: { id: 456, name: 'Jane Smith' },
+        }
       );
-      
+
       const spec = openApiStore.getOpenAPISpec();
-      
+
       // Check that the path was correctly parameterized
       expect(spec.paths?.['/users/{id}']).toBeDefined();
       if (spec.paths?.['/users/{id}']) {
         expect(spec.paths['/users/{id}'].get).toBeDefined();
-        
+
         // Check that the path parameter is defined
         const params = spec.paths['/users/{id}'].get?.parameters;
         expect(params).toBeDefined();
-        expect(params?.some(p => (p as OpenAPIV3_1.ParameterObject).name === 'id' && (p as OpenAPIV3_1.ParameterObject).in === 'path')).toBe(true);
+        expect(
+          params?.some(
+            (p) =>
+              (p as OpenAPIV3_1.ParameterObject).name === 'id' &&
+              (p as OpenAPIV3_1.ParameterObject).in === 'path'
+          )
+        ).toBe(true);
       }
     });
 
@@ -729,48 +750,60 @@ describe('OpenAPI Store', () => {
       openApiStore.recordEndpoint(
         '/secure',
         'get',
-        { 
-          query: {}, 
-          headers: { 'x-api-key': 'test-key' }, 
-          contentType: 'application/json', 
+        {
+          query: {},
+          headers: { 'x-api-key': 'test-key' },
+          contentType: 'application/json',
           body: null,
-          security: [{ type: 'apiKey', name: 'x-api-key', in: 'header' }]
+          security: [{ type: 'apiKey', name: 'x-api-key', in: 'header' }],
         },
-        { status: 200, headers: {}, contentType: 'application/json', body: { message: 'Secret data' } }
+        {
+          status: 200,
+          headers: {},
+          contentType: 'application/json',
+          body: { message: 'Secret data' },
+        }
       );
-      
+
       // Record an endpoint with Bearer token
       openApiStore.recordEndpoint(
         '/auth/profile',
         'get',
-        { 
-          query: {}, 
-          headers: { 'authorization': 'Bearer token123' }, 
-          contentType: 'application/json', 
+        {
+          query: {},
+          headers: { authorization: 'Bearer token123' },
+          contentType: 'application/json',
           body: null,
-          security: [{ type: 'http', scheme: 'bearer' }]
+          security: [{ type: 'http', scheme: 'bearer' }],
         },
-        { status: 200, headers: {}, contentType: 'application/json', body: { id: 1, username: 'admin' } }
+        {
+          status: 200,
+          headers: {},
+          contentType: 'application/json',
+          body: { id: 1, username: 'admin' },
+        }
       );
-      
+
       const spec = openApiStore.getOpenAPISpec();
-      
+
       // Check security schemes are defined
       expect(spec.components?.securitySchemes).toBeDefined();
-      
+
       // Check API Key security scheme
-      const apiKeyScheme = spec.components?.securitySchemes?.apiKey_ as OpenAPIV3_1.ApiKeySecurityScheme;
+      const apiKeyScheme = spec.components?.securitySchemes
+        ?.apiKey_ as OpenAPIV3_1.ApiKeySecurityScheme;
       expect(apiKeyScheme).toBeDefined();
       expect(apiKeyScheme.type).toBe('apiKey');
       expect(apiKeyScheme.in).toBe('header');
       expect(apiKeyScheme.name).toBe('x-api-key');
-      
+
       // Check Bearer token security scheme
-      const bearerScheme = spec.components?.securitySchemes?.http_ as OpenAPIV3_1.HttpSecurityScheme;
+      const bearerScheme = spec.components?.securitySchemes
+        ?.http_ as OpenAPIV3_1.HttpSecurityScheme;
       expect(bearerScheme).toBeDefined();
       expect(bearerScheme.type).toBe('http');
       expect(bearerScheme.scheme).toBe('bearer');
-      
+
       // Check security requirements on endpoints
       expect(spec.paths?.['/secure']?.get?.security).toBeDefined();
       expect(spec.paths?.['/auth/profile']?.get?.security).toBeDefined();
@@ -782,7 +815,7 @@ describe('OpenAPI Store', () => {
       const data = { id: 1, name: 'John Doe', active: true, age: 30 };
       // @ts-ignore: Testing private method
       const schema = openApiStore.generateJsonSchema(data);
-      
+
       expect(schema.type).toBe('object');
       expect((schema.properties?.id as OpenAPIV3_1.SchemaObject).type).toBe('integer');
       expect((schema.properties?.name as OpenAPIV3_1.SchemaObject).type).toBe('string');
@@ -793,11 +826,11 @@ describe('OpenAPI Store', () => {
     it('should generate schema from array', () => {
       const data = [
         { id: 1, name: 'John Doe' },
-        { id: 2, name: 'Jane Smith' }
+        { id: 2, name: 'Jane Smith' },
       ];
       // @ts-ignore: Testing private method
       const schema = openApiStore.generateJsonSchema(data);
-      
+
       expect(schema.type).toBe('array');
       // Using ts-ignore since we're accessing a property that might not exist on all schema types
       // @ts-ignore
@@ -817,16 +850,21 @@ describe('OpenAPI Store', () => {
         address: {
           street: '123 Main St',
           city: 'Anytown',
-          zipCode: '12345'
+          zipCode: '12345',
         },
-        tags: ['developer', 'javascript']
+        tags: ['developer', 'javascript'],
       };
       // @ts-ignore: Testing private method
       const schema = openApiStore.generateJsonSchema(data);
-      
+
       expect(schema.type).toBe('object');
       expect((schema.properties?.address as OpenAPIV3_1.SchemaObject).type).toBe('object');
-      expect(((schema.properties?.address as OpenAPIV3_1.SchemaObject).properties?.street as OpenAPIV3_1.SchemaObject).type).toBe('string');
+      expect(
+        (
+          (schema.properties?.address as OpenAPIV3_1.SchemaObject).properties
+            ?.street as OpenAPIV3_1.SchemaObject
+        ).type
+      ).toBe('string');
       expect((schema.properties?.tags as OpenAPIV3_1.SchemaObject).type).toBe('array');
       // @ts-ignore
       expect((schema.properties?.tags as OpenAPIV3_1.SchemaObject).items?.type).toBe('string');
@@ -836,20 +874,20 @@ describe('OpenAPI Store', () => {
       const data = { id: 1, name: 'John Doe', description: null };
       // @ts-ignore: Testing private method
       const schema = openApiStore.generateJsonSchema(data);
-      
+
       expect((schema.properties?.description as OpenAPIV3_1.SchemaObject).type).toBe('null');
     });
 
     it('should detect proper types for numeric values', () => {
-      const data = { 
+      const data = {
         integer: 42,
         float: 3.14,
         scientific: 1e6,
-        zero: 0
+        zero: 0,
       };
       // @ts-ignore: Testing private method
       const schema = openApiStore.generateJsonSchema(data);
-      
+
       expect((schema.properties?.integer as OpenAPIV3_1.SchemaObject).type).toBe('integer');
       expect((schema.properties?.float as OpenAPIV3_1.SchemaObject).type).toBe('number');
       expect((schema.properties?.scientific as OpenAPIV3_1.SchemaObject).type).toBe('integer');
@@ -861,7 +899,7 @@ describe('OpenAPI Store', () => {
     it('should detect and generate schema for array-like structures', () => {
       // @ts-ignore: Testing private method
       const schema = openApiStore.generateSchemaFromStructure('[{"id":1,"name":"test"},{"id":2}]');
-      
+
       expect(schema.type).toBe('array');
       // TypeScript doesn't recognize that an array schema will have items
       // @ts-ignore
@@ -870,8 +908,10 @@ describe('OpenAPI Store', () => {
 
     it('should detect and generate schema for object-like structures', () => {
       // @ts-ignore: Testing private method
-      const schema = openApiStore.generateSchemaFromStructure('{"id":1,"name":"test","active":true}');
-      
+      const schema = openApiStore.generateSchemaFromStructure(
+        '{"id":1,"name":"test","active":true}'
+      );
+
       expect(schema.type).toBe('object');
       expect(schema.properties).toBeDefined();
       expect(schema.properties?.id).toBeDefined();
@@ -882,7 +922,7 @@ describe('OpenAPI Store', () => {
     it('should handle unstructured content', () => {
       // @ts-ignore: Testing private method
       const schema = openApiStore.generateSchemaFromStructure('This is just plain text');
-      
+
       expect(schema.type).toBe('string');
     });
   });
@@ -896,15 +936,15 @@ describe('OpenAPI Store', () => {
         { query: {}, headers: {}, contentType: 'application/json', body: null },
         { status: 200, headers: {}, contentType: 'application/json', body: { success: true } }
       );
-      
+
       const har = openApiStore.generateHAR();
-      
+
       expect(har.log).toBeDefined();
       expect(har.log.version).toBe('1.2');
       expect(har.log.creator).toBeDefined();
       expect(har.log.entries).toBeDefined();
       expect(har.log.entries).toHaveLength(1);
-      
+
       const entry = har.log.entries[0];
       expect(entry.request.method).toBe('GET');
       expect(entry.request.url).toBe('http://localhost:8080/test');
@@ -921,9 +961,9 @@ describe('OpenAPI Store', () => {
         { query: {}, headers: {}, contentType: 'application/json', body: null },
         { status: 200, headers: {}, contentType: 'application/json', body: { success: true } }
       );
-      
+
       const yaml = openApiStore.getOpenAPISpecAsYAML();
-      
+
       expect(yaml).toContain('openapi: 3.1.0');
       expect(yaml).toContain('paths:');
       expect(yaml).toContain('/test:');
