@@ -46,7 +46,7 @@
     "express": "^4.21.2",
     "hono": "^4.1.2",
     "http-proxy": "^1.18.1",
-    "http-proxy-middleware": "^3.0.3",
+    "http-proxy-middleware": "^3.0.5",
     "serve-static": "^1.16.2",
     "swagger-ui-express": "^5.0.1",
     "yaml": "^2.7.0"
