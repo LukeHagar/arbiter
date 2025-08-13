@@ -4,7 +4,7 @@
   "description": "API proxy with OpenAPI generation and HAR export capabilities",
   "main": "dist/cli.js",
   "bin": {
-    "arbiter": "./dist/cli.js"
+    "arbiter": "./dist/src/cli.js"
   },
   "type": "module",
   "repository": {
