@@ -144,6 +144,17 @@ export class OpenAPIStore {
     this.rawDataCache.clear();
   }
 
+  // Persist/restore helpers
+  public getEndpoint(path: string, method: string): EndpointInfo | undefined {
+    const key = `${method.toLowerCase()} ${path}`;
+    return this.endpoints.get(key);
+  }
+
+  public importEndpoint(path: string, method: string, data: EndpointInfo): void {
+    const key = `${method.toLowerCase()} ${path}`;
+    this.endpoints.set(key, data);
+  }
+
   private deepMergeSchemas(schemas: OpenAPIV3_1.SchemaObject[]): OpenAPIV3_1.SchemaObject {
     if (schemas.length === 0) return { type: 'object' };
     if (schemas.length === 1) return schemas[0];

@@ -16,6 +16,7 @@ program
   .requiredOption('-t, --target <url>', 'target API URL to proxy to')
   .option('-p, --port <number>', 'port to run the proxy server on', '8080')
   .option('-d, --docs-port <number>', 'port to run the documentation server on', '9000')
+  .option('--db-path <path>', 'path to SQLite database file for persistence')
   .option('--docs-only', 'run only the documentation server')
   .option('--proxy-only', 'run only the proxy server')
   .option('-v, --verbose', 'enable verbose logging')
@@ -29,6 +30,7 @@ startServers({
   proxyPort: parseInt(options.port as string, 10),
   docsPort: parseInt(options.docsPort as string, 10),
   verbose: options.verbose as boolean,
+  dbPath: options.dbPath as string | undefined,
 }).catch((error: Error) => {
   console.error(chalk.red('Failed to start servers:'), error.message);
   process.exit(1);

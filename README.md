@@ -19,6 +19,34 @@ Arbiter is a powerful API proxy and documentation generator that automatically c
 
 ## Getting Started
 
+### Installation
+
+```bash
+npm install -g arbiter
+```
+
+### Basic Usage
+
+Start Arbiter by pointing it to your target API:
+
+```bash
+arbiter --target https://api.example.com
+# with persistence
+arbiter --target https://api.example.com --db-path ./arbiter.db
+```
+
+Then send requests through the proxy:
+
+```bash
+curl http://localhost:8080/users
+```
+
+And view the automatically generated documentation:
+
+```bash
+open http://localhost:9000/docs
+```
+
 ### Docker Usage
 
 You can run Arbiter using Docker:
@@ -27,8 +55,13 @@ You can run Arbiter using Docker:
 # Build the Docker image
 docker build -t arbiter .
 
-# Run the container
+# Run the container (ephemeral)
 docker run -p 8080:8080 -p 9000:9000 arbiter --target https://api.example.com
+
+# Run the container with persistent storage
+docker run -p 8080:8080 -p 9000:9000 \
+  -v $(pwd)/data:/data \
+  arbiter --target https://api.example.com --db-path /data/arbiter.db
 ```
 
 The container exposes:
@@ -42,6 +75,7 @@ docker run -p 3000:3000 -p 3001:3001 arbiter \
   --target https://api.example.com \
   --port 3000 \
   --docs-port 3001 \
+  --db-path /data/arbiter.db \
   --verbose
 ```
 
@@ -52,6 +86,7 @@ docker run -p 3000:3000 -p 3001:3001 arbiter \
 | `-t, --target <url>` | Target API URL to proxy to | (required) |
 | `-p, --port <number>` | Port to run the proxy server on | 8080 |
 | `-d, --docs-port <number>` | Port to run the documentation server on | 9000 |
+| `--db-path <path>` | Path to SQLite database file for persistence | (disabled) |
 | `--docs-only` | Run only the documentation server | false |
 | `--proxy-only` | Run only the proxy server | false |
 | `-v, --verbose` | Enable verbose logging | false |
@@ -148,6 +183,16 @@ app.listen(3000);
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+## Publishing (maintainers)
+
+This repo auto-publishes to npm on push to `main` if the version in `package.json` is newer than the version on npm.
+
+Setup (one-time):
+- Add a repository secret `NPM_TOKEN` with publish rights for the package.
+
+Manual run:
+- You can also trigger the workflow manually from the Actions tab (workflow_dispatch).
 
 ## License
 

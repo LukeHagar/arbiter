@@ -1,0 +1,67 @@
+name: Publish to npm
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: {}
+
+concurrency:
+  group: publish-npm
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Determine publish necessity
+        id: check
+        shell: bash
+        run: |
+          set -euo pipefail
+          PKG_NAME=$(node -p "require('./package.json').name")
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          echo "Package: $PKG_NAME@$PKG_VERSION"
+          PUBLISHED_VERSION=$(npm view "$PKG_NAME" version || echo "0.0.0")
+          echo "Published: $PUBLISHED_VERSION"
+          if [ "$PKG_VERSION" = "$PUBLISHED_VERSION" ]; then
+            echo "should_publish=false" >> $GITHUB_OUTPUT
+          else
+            echo "should_publish=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish to npm
+        if: steps.check.outputs.should_publish == 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          # Enable provenance for npm (requires id-token permission)
+          npm publish --provenance --access public
+
+      - name: Skip publish (version unchanged)
+        if: steps.check.outputs.should_publish != 'true'
+        run: echo "Skipping publish because version has not changed."
+
+

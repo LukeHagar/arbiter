@@ -3,7 +3,8 @@ import { createProxyMiddleware } from 'http-proxy-middleware';
 import { createServer } from 'http';
 import cors from 'cors';
 import zlib from 'zlib';
-import { openApiStore } from './store/openApiStore.js';
+import { openApiStore, OpenAPIStore } from './store/openApiStore.js';
+import { initStorage, storage } from './storage/index.js';
 import chalk from 'chalk';
 import { IncomingMessage, ServerResponse } from 'http';
 import type { SecurityInfo } from './store/openApiStore.js';
@@ -129,6 +130,7 @@ export interface ServerOptions {
   proxyPort: number;
   docsPort: number;
   verbose?: boolean;
+  dbPath?: string;
 }
 
 /**
@@ -139,10 +141,38 @@ export async function startServers({
   proxyPort,
   docsPort,
   verbose = false,
+  dbPath,
 }: ServerOptions): Promise<{
   proxyServer: ReturnType<typeof createServer>;
   docsServer: ReturnType<typeof createServer>;
 }> {
+  // Initialize persistent storage if dbPath provided
+  if (dbPath) {
+    try {
+      await initStorage(dbPath);
+      if (verbose) console.log(`Initialized SQLite storage at ${dbPath}`);
+      // Hydrate OpenAPI store with persisted endpoints (minimal info)
+      const persisted = await storage().getAllEndpoints();
+      for (const ep of persisted) {
+        try {
+          openApiStore.recordEndpoint(
+            ep.path,
+            ep.method.toLowerCase(),
+            ep.data.request,
+            {
+              status: ep.data.response?.status || 200,
+              headers: ep.data.response?.headers || {},
+              contentType: ep.data.response?.contentType || 'application/json',
+              body: '[Raw data stored]',
+              rawData: Buffer.alloc(0),
+            }
+          );
+        } catch {}
+      }
+    } catch (e) {
+      console.error('Failed to initialize storage:', e);
+    }
+  }
   // Set the target URL in the OpenAPI store
   openApiStore.setTargetUrl(target);
 
@@ -368,8 +398,19 @@ export async function startServers({
                 _rawResponseBuffer: buffer, // Store for later processing if needed
               };
 
-              // Add the HAR entry to the store
+              // Add the HAR entry to the store and persist if enabled
               harStore.addEntry(harEntry);
+              if (dbPath) {
+                storage().saveHarEntry({
+                  startedDateTime: harEntry.startedDateTime,
+                  time: harEntry.time,
+                  request: harEntry.request,
+                  response: {
+                    ...harEntry.response,
+                    // Do not persist raw buffer reference
+                  },
+                }).catch(() => {});
+              }
 
               // Extract security schemes from headers - minimal work
               const securitySchemes: SecurityInfo[] = [];
@@ -415,6 +456,26 @@ export async function startServers({
                 }
               );
 
+              // Persist endpoint minimal info for reconstruction
+              if (dbPath) {
+                storage().upsertEndpoint(path, method.toLowerCase(), {
+                  path,
+                  method: method.toLowerCase(),
+                  request: {
+                    query: queryParams,
+                    headers: requestHeaders,
+                    contentType: requestHeaders['content-type'] || 'application/json',
+                    body: requestBody,
+                    security: securitySchemes,
+                  },
+                  response: {
+                    status: proxyRes.statusCode || 500,
+                    headers: responseHeaders,
+                    contentType: responseHeaders['content-type'] || 'application/json',
+                  },
+                }).catch(() => {});
+              }
+
               if (verbose) {
                 console.log(`${method} ${path} -> ${proxyRes.statusCode}`);
               }
@@ -432,18 +493,73 @@ export async function startServers({
   docsApp.use(cors());
 
   // Create documentation endpoints
-  docsApp.get('/har', (req, res) => {
+  docsApp.get('/har', async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
+    if (dbPath) {
+      try {
+        const log = await storage().getHarLog();
+        res.send(JSON.stringify(log));
+        return;
+      } catch {}
+    }
     res.send(JSON.stringify(harStore.getHAR()));
   });
 
-  docsApp.get('/openapi.json', (req, res) => {
+  docsApp.get('/openapi.json', async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
+    if (dbPath) {
+      try {
+        const persisted = await storage().getAllEndpoints();
+        const tempStore = new OpenAPIStore();
+        tempStore.setTargetUrl(target);
+        for (const ep of persisted) {
+          try {
+            tempStore.recordEndpoint(
+              ep.path,
+              ep.method.toLowerCase(),
+              ep.data.request,
+              {
+                status: ep.data.response?.status || 200,
+                headers: ep.data.response?.headers || {},
+                contentType: ep.data.response?.contentType || 'application/json',
+                body: '[Raw data stored]'
+              }
+            );
+          } catch {}
+        }
+        res.send(JSON.stringify(tempStore.getOpenAPISpec()));
+        return;
+      } catch {}
+    }
     res.send(JSON.stringify(openApiStore.getOpenAPISpec()));
   });
 
-  docsApp.get('/openapi.yaml', (req, res) => {
+  docsApp.get('/openapi.yaml', async (req, res) => {
     res.setHeader('Content-Type', 'text/plain');
+    if (dbPath) {
+      try {
+        const persisted = await storage().getAllEndpoints();
+        const tempStore = new OpenAPIStore();
+        tempStore.setTargetUrl(target);
+        for (const ep of persisted) {
+          try {
+            tempStore.recordEndpoint(
+              ep.path,
+              ep.method.toLowerCase(),
+              ep.data.request,
+              {
+                status: ep.data.response?.status || 200,
+                headers: ep.data.response?.headers || {},
+                contentType: ep.data.response?.contentType || 'application/json',
+                body: '[Raw data stored]'
+              }
+            );
+          } catch {}
+        }
+        res.send(tempStore.getOpenAPISpecAsYAML());
+        return;
+      } catch {}
+    }
     res.send(openApiStore.getOpenAPISpecAsYAML());
   });
 
