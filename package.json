@@ -1,8 +1,8 @@
 {
   "name": "@lukehagar/arbiter",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "API proxy with OpenAPI generation and HAR export capabilities",
-  "main": "dist/cli.js",
+  "main": "dist/src/server.js",
   "bin": {
     "arbiter": "./dist/src/cli.js"
   },
@@ -17,6 +17,20 @@
     "url": "https://github.com/LukeHagar/arbiter/issues"
   },
   "homepage": "https://github.com/LukeHagar/arbiter#readme",
+  "exports": {
+    ".": {
+      "import": "./dist/src/server.js",
+      "types": "./dist/src/server.d.ts"
+    },
+    "./middleware": {
+      "import": "./dist/src/middleware/harRecorder.js",
+      "types": "./dist/src/middleware/harRecorder.d.ts"
+    },
+    "./store": {
+      "import": "./dist/src/store/openApiStore.js",
+      "types": "./dist/src/store/openApiStore.d.ts"
+    }
+  },
   "scripts": {
     "build": "tsc",
     "start": "node dist/src/cli.js",
