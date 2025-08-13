@@ -56,8 +56,6 @@
     "@types/cors": "^2.8.19",
     "@types/better-sqlite3": "^7.6.13",
     "@types/express": "^5.0.3",
-    "@types/chalk": "^2.2.4",
-    "@types/commander": "^2.12.5",
     "@types/http-proxy": "^1.17.16",
     "@types/serve-static": "^1.15.8",
     "@types/swagger-ui-express": "^4.1.8",
