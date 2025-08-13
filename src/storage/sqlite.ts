@@ -80,14 +80,9 @@ export class SQLiteStorage implements StorageAdapter {
     };
     if (!this.db) return empty;
     try {
-      const rows: Array<{
-        startedDateTime: string;
-        time: number;
-        request: string;
-        response: string;
-      }> = this.db
+      const rows = this.db
         .prepare('SELECT startedDateTime, time, request, response FROM har_entries ORDER BY id ASC')
-        .all();
+        .all() as Array<{ startedDateTime: string; time: number; request: string; response: string }>;
       const entries = rows.map(
         (r: { startedDateTime: string; time: number; request: string; response: string }) => {
           let req: any = {};
@@ -133,9 +128,9 @@ export class SQLiteStorage implements StorageAdapter {
   async getAllEndpoints(): Promise<Array<{ path: string; method: string; data: any }>> {
     if (!this.db) return [];
     try {
-      const rows: Array<{ path: string; method: string; data: string }> = this.db
+      const rows = this.db
         .prepare('SELECT path, method, data FROM endpoints')
-        .all();
+        .all() as Array<{ path: string; method: string; data: string }>;
       return rows.map((r: { path: string; method: string; data: string }) => {
         let data: any = {};
         try {
