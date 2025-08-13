@@ -26,6 +26,9 @@ importers:
       better-sqlite3:
         specifier: ^12.2.0
         version: 12.2.0
+      body-parser:
+        specifier: ^2.2.0
+        version: 2.2.0
       chalk:
         specifier: ^5.5.0
         version: 5.5.0
