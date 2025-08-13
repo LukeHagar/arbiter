@@ -75,28 +75,37 @@ export class SQLiteStorage implements StorageAdapter {
   }
 
   async getHarLog(): Promise<any> {
-    const empty = { log: { version: '1.2', creator: { name: 'Arbiter', version: '1.0.0' }, entries: [] as any[] } };
+    const empty = {
+      log: { version: '1.2', creator: { name: 'Arbiter', version: '1.0.0' }, entries: [] as any[] },
+    };
     if (!this.db) return empty;
     try {
-      const rows: Array<{ startedDateTime: string; time: number; request: string; response: string }> = this.db
+      const rows: Array<{
+        startedDateTime: string;
+        time: number;
+        request: string;
+        response: string;
+      }> = this.db
         .prepare('SELECT startedDateTime, time, request, response FROM har_entries ORDER BY id ASC')
         .all();
-      const entries = rows.map((r: { startedDateTime: string; time: number; request: string; response: string }) => {
-        let req: any = {};
-        let res: any = {};
-        try {
-          req = JSON.parse(r.request);
-        } catch {}
-        try {
-          res = JSON.parse(r.response);
-        } catch {}
-        return {
-          startedDateTime: r.startedDateTime,
-          time: r.time,
-          request: req,
-          response: res,
-        };
-      });
+      const entries = rows.map(
+        (r: { startedDateTime: string; time: number; request: string; response: string }) => {
+          let req: any = {};
+          let res: any = {};
+          try {
+            req = JSON.parse(r.request);
+          } catch {}
+          try {
+            res = JSON.parse(r.response);
+          } catch {}
+          return {
+            startedDateTime: r.startedDateTime,
+            time: r.time,
+            request: req,
+            response: res,
+          };
+        }
+      );
       return { log: { ...empty.log, entries } };
     } catch {
       return empty;
@@ -124,7 +133,9 @@ export class SQLiteStorage implements StorageAdapter {
   async getAllEndpoints(): Promise<Array<{ path: string; method: string; data: any }>> {
     if (!this.db) return [];
     try {
-      const rows: Array<{ path: string; method: string; data: string }> = this.db.prepare('SELECT path, method, data FROM endpoints').all();
+      const rows: Array<{ path: string; method: string; data: string }> = this.db
+        .prepare('SELECT path, method, data FROM endpoints')
+        .all();
       return rows.map((r: { path: string; method: string; data: string }) => {
         let data: any = {};
         try {
@@ -139,5 +150,3 @@ export class SQLiteStorage implements StorageAdapter {
 }
 
 export const sqliteStorage = new SQLiteStorage();
-
-

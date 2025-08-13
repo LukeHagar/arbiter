@@ -11,5 +11,3 @@ export async function initStorage(dbPath: string): Promise<StorageAdapter> {
 export function storage(): StorageAdapter {
   return storageInstance;
 }
-
-

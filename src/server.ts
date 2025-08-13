@@ -155,18 +155,13 @@ export async function startServers({
       const persisted = await storage().getAllEndpoints();
       for (const ep of persisted) {
         try {
-          openApiStore.recordEndpoint(
-            ep.path,
-            ep.method.toLowerCase(),
-            ep.data.request,
-            {
-              status: ep.data.response?.status || 200,
-              headers: ep.data.response?.headers || {},
-              contentType: ep.data.response?.contentType || 'application/json',
-              body: '[Raw data stored]',
-              rawData: Buffer.alloc(0),
-            }
-          );
+          openApiStore.recordEndpoint(ep.path, ep.method.toLowerCase(), ep.data.request, {
+            status: ep.data.response?.status || 200,
+            headers: ep.data.response?.headers || {},
+            contentType: ep.data.response?.contentType || 'application/json',
+            body: '[Raw data stored]',
+            rawData: Buffer.alloc(0),
+          });
         } catch {}
       }
     } catch (e) {
@@ -401,15 +396,17 @@ export async function startServers({
               // Add the HAR entry to the store and persist if enabled
               harStore.addEntry(harEntry);
               if (dbPath) {
-                storage().saveHarEntry({
-                  startedDateTime: harEntry.startedDateTime,
-                  time: harEntry.time,
-                  request: harEntry.request,
-                  response: {
-                    ...harEntry.response,
-                    // Do not persist raw buffer reference
-                  },
-                }).catch(() => {});
+                storage()
+                  .saveHarEntry({
+                    startedDateTime: harEntry.startedDateTime,
+                    time: harEntry.time,
+                    request: harEntry.request,
+                    response: {
+                      ...harEntry.response,
+                      // Do not persist raw buffer reference
+                    },
+                  })
+                  .catch(() => {});
               }
 
               // Extract security schemes from headers - minimal work
@@ -458,22 +455,24 @@ export async function startServers({
 
               // Persist endpoint minimal info for reconstruction
               if (dbPath) {
-                storage().upsertEndpoint(path, method.toLowerCase(), {
-                  path,
-                  method: method.toLowerCase(),
-                  request: {
-                    query: queryParams,
-                    headers: requestHeaders,
-                    contentType: requestHeaders['content-type'] || 'application/json',
-                    body: requestBody,
-                    security: securitySchemes,
-                  },
-                  response: {
-                    status: proxyRes.statusCode || 500,
-                    headers: responseHeaders,
-                    contentType: responseHeaders['content-type'] || 'application/json',
-                  },
-                }).catch(() => {});
+                storage()
+                  .upsertEndpoint(path, method.toLowerCase(), {
+                    path,
+                    method: method.toLowerCase(),
+                    request: {
+                      query: queryParams,
+                      headers: requestHeaders,
+                      contentType: requestHeaders['content-type'] || 'application/json',
+                      body: requestBody,
+                      security: securitySchemes,
+                    },
+                    response: {
+                      status: proxyRes.statusCode || 500,
+                      headers: responseHeaders,
+                      contentType: responseHeaders['content-type'] || 'application/json',
+                    },
+                  })
+                  .catch(() => {});
               }
 
               if (verbose) {
@@ -514,17 +513,12 @@ export async function startServers({
         tempStore.setTargetUrl(target);
         for (const ep of persisted) {
           try {
-            tempStore.recordEndpoint(
-              ep.path,
-              ep.method.toLowerCase(),
-              ep.data.request,
-              {
-                status: ep.data.response?.status || 200,
-                headers: ep.data.response?.headers || {},
-                contentType: ep.data.response?.contentType || 'application/json',
-                body: '[Raw data stored]'
-              }
-            );
+            tempStore.recordEndpoint(ep.path, ep.method.toLowerCase(), ep.data.request, {
+              status: ep.data.response?.status || 200,
+              headers: ep.data.response?.headers || {},
+              contentType: ep.data.response?.contentType || 'application/json',
+              body: '[Raw data stored]',
+            });
           } catch {}
         }
         res.send(JSON.stringify(tempStore.getOpenAPISpec()));
@@ -543,17 +537,12 @@ export async function startServers({
         tempStore.setTargetUrl(target);
         for (const ep of persisted) {
           try {
-            tempStore.recordEndpoint(
-              ep.path,
-              ep.method.toLowerCase(),
-              ep.data.request,
-              {
-                status: ep.data.response?.status || 200,
-                headers: ep.data.response?.headers || {},
-                contentType: ep.data.response?.contentType || 'application/json',
-                body: '[Raw data stored]'
-              }
-            );
+            tempStore.recordEndpoint(ep.path, ep.method.toLowerCase(), ep.data.request, {
+              status: ep.data.response?.status || 200,
+              headers: ep.data.response?.headers || {},
+              contentType: ep.data.response?.contentType || 'application/json',
+              body: '[Raw data stored]',
+            });
           } catch {}
         }
         res.send(tempStore.getOpenAPISpecAsYAML());

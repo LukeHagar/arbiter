@@ -12,5 +12,3 @@ export interface StorageAdapter {
   upsertEndpoint(path: string, method: string, data: any): Promise<void>;
   getAllEndpoints(): Promise<Array<{ path: string; method: string; data: any }>>;
 }
-
-
