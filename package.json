@@ -1,5 +1,5 @@
 {
-  "name": "arbiter",
+  "name": "@lukehagar/arbiter",
   "version": "1.0.0",
   "description": "API proxy with OpenAPI generation and HAR export capabilities",
   "main": "dist/cli.js",
